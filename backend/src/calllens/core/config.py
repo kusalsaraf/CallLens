@@ -31,8 +31,9 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     # JWT
-    jwt_secret: str = "change-me-in-production"
-    jwt_expiry_seconds: int = 3600
+    jwt_secret: str = "CHANGE-ME-IN-PRODUCTION-use-a-random-32-plus-byte-secret"
+    jwt_access_expiry_seconds: int = 900  # 15 minutes
+    jwt_refresh_expiry_seconds: int = 604800  # 7 days
 
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]

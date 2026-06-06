@@ -6,6 +6,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
+import calllens.db.models  # noqa: F401 — registers all ORM models on Base.metadata
 from calllens.core.config import get_settings
 from calllens.db.base import Base
 

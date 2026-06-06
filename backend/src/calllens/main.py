@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from calllens.api.v1 import health
+from calllens.api.v1 import auth, health
 from calllens.core.config import get_settings
 from calllens.core.exceptions import register_exception_handlers
 from calllens.core.logging import CorrelationIDMiddleware, configure_logging
@@ -44,6 +44,7 @@ def create_app() -> FastAPI:
 
     # Routers
     app.include_router(health.router)
+    app.include_router(auth.router, prefix="/api/v1")
 
     logger.info("CallLens API started", extra={"env": settings.app_env})
 
