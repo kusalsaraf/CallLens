@@ -131,8 +131,14 @@ async def test_pipeline_produces_transcript(
     tmp_path: Path,
     wav_fixture: bytes,
 ) -> None:
-    """run_call_pipeline with Stub/Null produces a Transcript + sets status transcribed."""
-    from calllens.services.seed import get_default_agent, seed_defaults
+    """run_call_pipeline with Stub/Null produces a Transcript + sets status scored.
+
+    Phase 3A: the pipeline now continues from transcription into scoring, so the
+    terminal success status is ``scored``, not ``transcribed``.  The default rubric
+    must be seeded so that score_call finds a rubric to work with.
+    """
+    from calllens.seed.rubric import seed_default_rubric
+    from calllens.services.seed import get_default_agent
 
     factory = async_sessionmaker(
         bind=db_engine,
@@ -140,7 +146,7 @@ async def test_pipeline_produces_transcript(
         class_=AsyncSession,  # type: ignore[call-arg]
     )
     async with factory() as db:
-        await seed_defaults(db)
+        await seed_default_rubric(db)
         agent = await get_default_agent(db)
 
     storage = LocalStorage(root=tmp_path)
@@ -166,13 +172,17 @@ async def test_pipeline_produces_transcript(
             "calllens.services.call_pipeline.publish_call_event",
             new=mock.AsyncMock(),
         ),
+        mock.patch(
+            "calllens.services.scoring_service.publish_call_event",
+            new=mock.AsyncMock(),
+        ),
     ):
         await run_call_pipeline(call_id)
 
     async with factory() as db:
         result = await db.execute(select(Call).where(Call.id == call_id))
         updated_call = result.scalar_one()
-        assert updated_call.status == CallStatus.transcribed
+        assert updated_call.status == CallStatus.scored
 
         t_result = await db.execute(select(Transcript).where(Transcript.call_id == call_id))
         transcript = t_result.scalar_one()

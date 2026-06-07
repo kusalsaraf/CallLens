@@ -2,9 +2,23 @@
 
 from calllens.db.models.agent import Agent
 from calllens.db.models.call import Call, CallStatus
+from calllens.db.models.rubric import Rubric, RubricDimension
+from calllens.db.models.scoring import CallScore, ScoreEvidence
 from calllens.db.models.segment import TranscriptSegment
 from calllens.db.models.team import Team
 from calllens.db.models.transcript import Transcript
 from calllens.db.models.user import User
 
-__all__ = ["Agent", "Call", "CallStatus", "Team", "Transcript", "TranscriptSegment", "User"]
+__all__ = [
+    "Agent",
+    "Call",
+    "CallScore",
+    "CallStatus",
+    "Rubric",
+    "RubricDimension",
+    "ScoreEvidence",
+    "Team",
+    "Transcript",
+    "TranscriptSegment",
+    "User",
+]

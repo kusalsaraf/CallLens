@@ -14,6 +14,7 @@ from calllens.db.base import Base
 
 if TYPE_CHECKING:
     from calllens.db.models.agent import Agent
+    from calllens.db.models.scoring import CallScore
     from calllens.db.models.transcript import Transcript
 
 
@@ -24,10 +25,14 @@ class CallStatus(enum.Enum):
     transcribing = "transcribing"
     diarizing = "diarizing"
     transcribed = "transcribed"
+    scoring = "scoring"
+    scored = "scored"
     failed = "failed"
 
 
-_TERMINAL_STATUSES: frozenset[CallStatus] = frozenset({CallStatus.transcribed, CallStatus.failed})
+_TERMINAL_STATUSES: frozenset[CallStatus] = frozenset(
+    {CallStatus.transcribed, CallStatus.scored, CallStatus.failed}
+)
 
 
 def is_terminal(status: CallStatus) -> bool:
@@ -68,4 +73,7 @@ class Call(Base):
     agent: Mapped[Agent | None] = relationship("Agent", back_populates="calls")
     transcript: Mapped[Transcript | None] = relationship(
         "Transcript", back_populates="call", uselist=False
+    )
+    scores: Mapped[list[CallScore]] = relationship(
+        "CallScore", back_populates="call", cascade="all, delete-orphan"
     )

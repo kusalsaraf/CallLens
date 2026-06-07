@@ -103,6 +103,14 @@ async def run_call_pipeline(call_id: uuid.UUID) -> None:
 
             await db.flush()
             await _set_status(db, call, CallStatus.transcribed)
+
+            # Trigger scoring phase within the same session.
+            # score_call handles its own errors (sets failed status internally).
+            await _set_status(db, call, CallStatus.scoring)
+            from calllens.services.scoring_service import score_call
+
+            await score_call(call.id, db=db)
+
             logger.info("Pipeline complete", extra={"call_id": str(call_id)})
 
         except Exception as exc:

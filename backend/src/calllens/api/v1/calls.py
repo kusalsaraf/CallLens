@@ -12,18 +12,30 @@ from typing import Annotated
 import magic
 from fastapi import APIRouter, Depends, Header, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from calllens.core.config import get_settings
 from calllens.core.deps import get_current_user
 from calllens.core.exceptions import NotFoundError, ValidationError
 from calllens.db.models.call import Call, CallStatus, is_terminal
+from calllens.db.models.scoring import CallScore
 from calllens.db.models.segment import TranscriptSegment
 from calllens.db.models.transcript import Transcript
 from calllens.db.models.user import User
 from calllens.db.session import get_db
-from calllens.schemas.calls import CallListOut, CallOut, SegmentOut, TranscriptOut
+from calllens.schemas.calls import (
+    CallListOut,
+    CallOut,
+    CallScoreOut,
+    DimensionInfo,
+    EvidenceOut,
+    ScoresListOut,
+    SegmentOut,
+    TranscriptOut,
+)
+from calllens.services.scoring_service import score_call
 from calllens.services.seed import get_default_agent
 from calllens.storage.factory import get_storage
 from calllens.tasks.pipeline import process_call_task
@@ -387,7 +399,7 @@ async def call_events(
                     )
                     yield f"data: {payload_str}\n\n".encode()
                     parsed = json.loads(payload_str)
-                    if parsed.get("status") in ("transcribed", "failed"):
+                    if parsed.get("status") in ("transcribed", "scored", "failed"):
                         break
         finally:
             await r.aclose()
@@ -429,3 +441,107 @@ async def delete_call(
     await db.delete(call)
     await db.commit()
     logger.info("Call deleted", extra={"call_id": str(call_id)})
+
+
+# ---------------------------------------------------------------------------
+# GET /{id}/scores
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{call_id}/scores", response_model=ScoresListOut)
+async def get_call_scores(
+    call_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ScoresListOut:
+    """Return all scored dimensions for a call with evidence.
+
+    Args:
+        call_id: UUID of the target call.
+        db: Database session.
+        current_user: Authenticated user.
+
+    Returns:
+        ScoresListOut with all CallScore rows and their evidence.
+    """
+    await _get_call_or_404(call_id, db)
+
+    scores_result = await db.execute(
+        select(CallScore)
+        .where(CallScore.call_id == call_id)
+        .options(selectinload(CallScore.evidence), selectinload(CallScore.dimension))
+        .order_by(CallScore.scored_at)
+    )
+    scores = scores_result.scalars().all()
+
+    return ScoresListOut(
+        call_id=call_id,
+        scores=[
+            CallScoreOut(
+                id=cs.id,
+                dimension=DimensionInfo(
+                    id=cs.dimension.id,
+                    key=cs.dimension.key,
+                    name=cs.dimension.name,
+                    weight=cs.dimension.weight,
+                ),
+                score=cs.score,
+                confidence=cs.confidence,
+                rationale=cs.rationale,
+                is_supported=cs.is_supported,
+                scored_at=cs.scored_at,
+                evidence=[
+                    EvidenceOut(id=ev.id, segment_id=ev.segment_id, quote=ev.quote)
+                    for ev in cs.evidence
+                ],
+            )
+            for cs in scores
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /{id}/reprocess
+# ---------------------------------------------------------------------------
+
+_SCOREABLE_STATUSES = {CallStatus.transcribed, CallStatus.scoring, CallStatus.scored}
+
+
+@router.post("/{call_id}/reprocess", response_model=CallOut)
+async def reprocess_call_scores(
+    call_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> CallOut:
+    """Re-run scoring for an already-transcribed call (idempotent).
+
+    Deletes prior CallScore rows for the sentiment_empathy dimension
+    (and their evidence via CASCADE), then runs score_call to produce
+    fresh scores. The call must have status transcribed, scoring, or scored.
+
+    Args:
+        call_id: UUID of the call to reprocess.
+        db: Database session.
+        current_user: Authenticated user.
+
+    Returns:
+        Updated CallOut reflecting the new scoring status.
+
+    Raises:
+        HTTPException 409: If the call status is not in a scoreable state.
+    """
+    call = await _get_call_or_404(call_id, db)
+
+    if call.status not in _SCOREABLE_STATUSES:
+        raise HTTPException(
+            status_code=409,
+            detail="Call cannot be rescored in its current status",
+        )
+
+    await db.execute(delete(CallScore).where(CallScore.call_id == call_id))
+    await db.commit()
+
+    await score_call(call_id, db=db)
+
+    await db.refresh(call)
+    return CallOut.from_orm_call(call)

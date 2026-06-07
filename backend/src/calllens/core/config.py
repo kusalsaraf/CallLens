@@ -63,6 +63,16 @@ class Settings(BaseSettings):
     huggingface_token: str = ""
     groq_api_key: str = ""
 
+    # LLM / agents
+    llm_provider: Literal["stub", "langchain"] = "stub"
+    google_api_key: str = ""
+    llm_model_google: str = "gemini-1.5-flash"
+    llm_model_groq: str = "llama3-70b-8192"
+
+    # Scoring bands
+    score_band_good: int = 80
+    score_band_fair: int = 60
+
     @field_validator("cors_origins", "allowed_audio_mimes", mode="before")
     @classmethod
     def parse_csv_list(cls, v: object) -> object:

@@ -77,3 +77,46 @@ class CallListOut(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class EvidenceOut(BaseModel):
+    """A single evidence reference returned in a score response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    segment_id: uuid.UUID | None
+    quote: str
+
+
+class DimensionInfo(BaseModel):
+    """Brief rubric dimension info embedded in a score response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    key: str
+    name: str
+    weight: float
+
+
+class CallScoreOut(BaseModel):
+    """A scored dimension result with evidence."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    dimension: DimensionInfo
+    score: int
+    confidence: float
+    rationale: str
+    is_supported: bool
+    scored_at: datetime
+    evidence: list[EvidenceOut]
+
+
+class ScoresListOut(BaseModel):
+    """List of all scored dimensions for a call."""
+
+    call_id: uuid.UUID
+    scores: list[CallScoreOut]
