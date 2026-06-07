@@ -2,6 +2,8 @@
 
 These rules apply in every phase and every session. Follow them exactly.
 
+Read `docs/PROJECT_PLAN.md` and `docs/BUILD_LOG.md` at the start of every task.
+
 ## Git identity
 
 Always use the project owner's identity for commits. Never add AI attribution:
