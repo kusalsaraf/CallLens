@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design Tokens ────────────────────────────────────────────────────────
+   All color/radius values live here as HSL channel triples.
+   Tailwind config references them via hsl(var(--token)).
+   shadcn components use the same variable names.
+   ─────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    /* Canvas & ink */
+    --background: 60 14% 97%;        /* #FAFAF8 warm off-white */
+    --foreground: 240 5% 10%;        /* #18181A near-black */
+
+    /* Cards & popovers */
+    --card: 0 0% 100%;
+    --card-foreground: 240 5% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 5% 10%;
+
+    /* Brand accent — deep emerald-teal */
+    --primary: 170 61% 26%;          /* #1A6B5E */
+    --primary-foreground: 0 0% 98%;
+    --accent: 170 61% 26%;
+    --accent-foreground: 0 0% 98%;
+
+    /* Neutral surfaces */
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 5% 10%;
+    --muted: 240 5% 94%;
+    --muted-foreground: 240 4% 46%;
+
+    /* Destructive */
+    --destructive: 346 80% 35%;      /* --fail */
+    --destructive-foreground: 0 0% 98%;
+
+    /* Chrome */
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 170 61% 26%;
+    --radius: 0.5rem;
+
+    /* ── Semantic data colors (reuse everywhere numbers appear) ── */
+    --quality: 143 64% 24%;          /* #166534 forest-green */
+    --at-risk: 21 88% 40%;           /* #C2410C burnt-amber */
+    --fail: 346 80% 35%;             /* #9F1239 deep-rose */
+
+    /* Tabular-nums for all metric text */
+    --font-feature-tabular: "tnum";
+  }
+
+  .dark {
+    --background: 240 6% 7%;         /* #111113 */
+    --foreground: 60 14% 97%;
+    --card: 240 5% 11%;
+    --card-foreground: 60 14% 97%;
+    --popover: 240 5% 11%;
+    --popover-foreground: 60 14% 97%;
+    --primary: 170 55% 40%;          /* lighter in dark */
+    --primary-foreground: 0 0% 98%;
+    --accent: 170 55% 40%;
+    --accent-foreground: 0 0% 98%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 60 14% 97%;
+    --muted: 240 4% 18%;
+    --muted-foreground: 240 5% 58%;
+    --destructive: 346 72% 42%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 22%;
+    --input: 240 4% 22%;
+    --ring: 170 55% 40%;
+    --quality: 143 56% 36%;
+    --at-risk: 21 80% 50%;
+    --fail: 346 72% 42%;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  /* Metric/number elements inherit tabular spacing */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
+
+/* ─── Hero staggered-reveal animation ────────────────────────────────────── */
+@layer utilities {
+  .animate-fade-up {
+    animation: fade-up 0.55s ease both;
+    opacity: 0;
+  }
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+
+  /* Hover underline that draws in from left */
+  .underline-expand {
+    position: relative;
+  }
+  .underline-expand::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 0;
+    height: 1px;
+    background: currentColor;
+    transition: width 0.25s ease;
+  }
+  .underline-expand:hover::after {
+    width: 100%;
+  }
+}

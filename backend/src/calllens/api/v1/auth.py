@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _REFRESH_COOKIE_NAME = "refresh_token"
-_COOKIE_PATH = "/api/v1/auth"
+_COOKIE_PATH = "/"  # must be "/" so Next.js middleware can read it on /app/* routes
 
 
 def _attach_refresh_cookie(response: Response, token: str, max_age: int) -> None:
