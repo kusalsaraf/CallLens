@@ -9,6 +9,8 @@ interface TranscriptPanelProps {
   currentTimeSec: number;
   onSeek: (ms: number) => void;
   className?: string;
+  focusedSegmentId?: string;
+  onFocusedSegmentChange?: (id: string | null) => void;
 }
 
 function formatMs(ms: number): string {
@@ -23,6 +25,8 @@ export function TranscriptPanel({
   currentTimeSec,
   onSeek,
   className,
+  focusedSegmentId,
+  onFocusedSegmentChange,
 }: TranscriptPanelProps) {
   // Find the last segment whose start is <= currentTimeSec
   let activeIdx = -1;
@@ -33,6 +37,7 @@ export function TranscriptPanel({
   }
 
   const activeRef = useRef<HTMLButtonElement | null>(null);
+  const focusedRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     // scrollIntoView not available in jsdom; guard for test environments
@@ -40,6 +45,15 @@ export function TranscriptPanel({
       activeRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }, [activeIdx]);
+
+  useEffect(() => {
+    if (
+      focusedRef.current &&
+      typeof focusedRef.current.scrollIntoView === "function"
+    ) {
+      focusedRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [focusedSegmentId]);
 
   if (segments.length === 0) {
     return (
@@ -68,16 +82,19 @@ export function TranscriptPanel({
       <div className="flex flex-col p-2">
         {segments.map((seg, idx) => {
           const isActive = idx === activeIdx;
+          const isFocused = seg.id === focusedSegmentId;
 
           return (
             <button
               key={seg.id}
-              ref={isActive ? activeRef : null}
+              ref={isActive ? activeRef : isFocused ? focusedRef : null}
               data-active={isActive || undefined}
+              data-focused={isFocused || undefined}
               onClick={() => onSeek(seg.start_ms)}
               className={cn(
                 "flex gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
                 isActive && "bg-primary/5 ring-1 ring-inset ring-primary/20",
+                isFocused && "animate-segment-flash",
               )}
             >
               {/* Timestamp */}

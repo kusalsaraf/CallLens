@@ -28,6 +28,15 @@ const CONFIG: Record<
     label: "Transcribed",
     classes: "bg-[hsl(var(--quality)/0.12)] text-[hsl(var(--quality))]",
   },
+  scoring: {
+    label: "Scoring",
+    classes: "bg-[hsl(var(--at-risk)/0.12)] text-[hsl(var(--at-risk))]",
+    pulse: true,
+  },
+  scored: {
+    label: "Scored",
+    classes: "bg-[hsl(var(--quality)/0.12)] text-[hsl(var(--quality))]",
+  },
   failed: {
     label: "Failed",
     classes: "bg-[hsl(var(--fail)/0.12)] text-[hsl(var(--fail))]",

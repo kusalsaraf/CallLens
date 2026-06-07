@@ -10,10 +10,13 @@ export type CallStatus =
   | "transcribing"
   | "diarizing"
   | "transcribed"
+  | "scoring"
+  | "scored"
   | "failed";
 
 export const TERMINAL_STATUSES = new Set<CallStatus>([
-  "transcribed",
+  "transcribed", // kept for backward compat — calls may stop here if scoring not run
+  "scored",       // happy-path terminal after scoring
   "failed",
 ]);
 
@@ -54,6 +57,35 @@ export interface TranscriptOut {
   language: string | null;
   segments: SegmentOut[];
   created_at: string;
+}
+
+export interface EvidenceOut {
+  id: string;
+  segment_id: string | null;
+  quote: string;
+}
+
+export interface DimensionInfo {
+  id: string;
+  key: string;
+  name: string;
+  weight: number;
+}
+
+export interface CallScoreOut {
+  id: string;
+  dimension: DimensionInfo;
+  score: number;
+  confidence: number;
+  rationale: string;
+  is_supported: boolean;
+  scored_at: string;
+  evidence: EvidenceOut[];
+}
+
+export interface ScoresListOut {
+  call_id: string;
+  scores: CallScoreOut[];
 }
 
 export interface SsePayload {
@@ -102,6 +134,10 @@ export async function apiGetCall(id: string): Promise<CallOut> {
 
 export async function apiGetTranscript(id: string): Promise<TranscriptOut> {
   return apiFetch<TranscriptOut>(`/api/v1/calls/${id}/transcript`);
+}
+
+export async function apiGetScores(callId: string): Promise<ScoresListOut> {
+  return apiFetch<ScoresListOut>(`/api/v1/calls/${callId}/scores`);
 }
 
 export async function apiDeleteCall(id: string): Promise<void> {

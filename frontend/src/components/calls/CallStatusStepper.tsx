@@ -14,7 +14,19 @@ const STEPS: CallStatus[] = [
   "transcribing",
   "diarizing",
   "transcribed",
+  "scoring",
+  "scored",
 ];
+
+const STEP_LABELS: Record<CallStatus, string> = {
+  uploaded: "Uploaded",
+  transcribing: "Transcribing",
+  diarizing: "Diarizing",
+  transcribed: "Transcribed",
+  scoring: "Scoring",
+  scored: "Scored",
+  failed: "Failed",
+};
 
 interface CallStatusStepperProps {
   callId: string;
@@ -59,13 +71,23 @@ export function CallStatusStepper({
     return () => controller.abort();
   }, [callId, handleEvent, initialStatus]);
 
-  const currentIdx = STEPS.indexOf(status === "failed" ? "transcribed" : status);
+  // When scored (terminal success), use STEPS.length so all steps render as done.
+  // When failed, park at "transcribed" so the failure circle appears at the last
+  // successfully reached step.
+  const currentIdx =
+    status === "scored"
+      ? STEPS.length
+      : STEPS.indexOf(status === "failed" ? "transcribed" : status);
   const failed = status === "failed";
 
   return (
     <div className={cn("flex flex-col gap-4 rounded-lg border border-border bg-card p-6", className)}>
       <p className="text-sm font-medium text-foreground">
-        {failed ? "Processing failed" : "Processing your recording…"}
+        {failed
+          ? "Processing failed"
+          : status === "scored"
+            ? "Processing complete"
+            : "Processing your recording…"}
       </p>
 
       {/* Step indicators */}
@@ -98,7 +120,7 @@ export function CallStatusStepper({
                   isFailed && "text-[hsl(var(--fail))]",
                 )}
               >
-                {step}
+                {STEP_LABELS[step]}
               </span>
               {/* Connector */}
               {idx < STEPS.length - 1 && (

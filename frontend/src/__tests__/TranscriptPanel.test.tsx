@@ -107,4 +107,29 @@ describe("TranscriptPanel", () => {
     );
     expect(screen.getByText(/no transcript/i)).toBeInTheDocument();
   });
+
+  it("applies data-focused attribute to focused segment", () => {
+    render(
+      <TranscriptPanel
+        segments={SEGMENTS}
+        currentTimeSec={0}
+        onSeek={vi.fn()}
+        focusedSegmentId="s2"
+      />,
+    );
+    const focusedEl = document.querySelector("[data-focused]");
+    expect(focusedEl).not.toBeNull();
+    expect(focusedEl).toHaveTextContent("Hi how can I help");
+  });
+
+  it("no data-focused when focusedSegmentId is undefined", () => {
+    render(
+      <TranscriptPanel
+        segments={SEGMENTS}
+        currentTimeSec={0}
+        onSeek={vi.fn()}
+      />,
+    );
+    expect(document.querySelector("[data-focused]")).toBeNull();
+  });
 });

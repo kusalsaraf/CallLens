@@ -66,11 +66,16 @@ const config: Config = {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.4" },
         },
+        "segment-flash": {
+          "0%": { backgroundColor: "hsl(var(--primary) / 0.18)" },
+          "100%": { backgroundColor: "transparent" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.55s ease forwards",
         "fade-in": "fade-in 0.4s ease forwards",
         "pulse-slow": "pulse-slow 2s ease-in-out infinite",
+        "segment-flash": "segment-flash 1.4s ease-out forwards",
       },
     },
   },

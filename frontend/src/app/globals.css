@@ -96,6 +96,15 @@
   }
 }
 
+/* Segment focus flash — triggered by focusedSegmentId change in TranscriptPanel */
+@keyframes segment-flash {
+  0%   { background-color: hsl(var(--primary) / 0.18); }
+  100% { background-color: transparent; }
+}
+.animate-segment-flash {
+  animation: segment-flash 1.4s ease-out forwards;
+}
+
 /* ─── Hero staggered-reveal animation ────────────────────────────────────── */
 @layer utilities {
   .animate-fade-up {
