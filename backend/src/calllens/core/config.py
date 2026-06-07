@@ -1,6 +1,7 @@
 """Application configuration via pydantic-settings."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import field_validator
@@ -39,14 +40,35 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     # Storage
-    storage_backend: Literal["local", "s3", "gcs"] = "local"
+    storage_backend: Literal["local", "s3"] = "local"
+    local_storage_dir: Path = Path("/tmp/calllens/audio")
+    max_upload_mb: int = 200
 
-    @field_validator("cors_origins", mode="before")
+    # Allowed audio MIME types (sniffed from file content, not from client Content-Type)
+    allowed_audio_mimes: list[str] = [
+        "audio/mpeg",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/ogg",
+        "audio/flac",
+        "audio/mp4",
+        "audio/x-m4a",
+        "audio/webm",
+        "video/mp4",
+    ]
+
+    # Transcription
+    transcriber_provider: Literal["stub", "faster_whisper", "groq"] = "stub"
+    diarizer_provider: Literal["null", "pyannote"] = "null"
+    huggingface_token: str = ""
+    groq_api_key: str = ""
+
+    @field_validator("cors_origins", "allowed_audio_mimes", mode="before")
     @classmethod
-    def parse_cors_origins(cls, v: object) -> object:
-        """Parse comma-separated CORS origins string into a list."""
+    def parse_csv_list(cls, v: object) -> object:
+        """Parse comma-separated string into a list."""
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
+            return [item.strip() for item in v.split(",") if item.strip()]
         return v
 
 
