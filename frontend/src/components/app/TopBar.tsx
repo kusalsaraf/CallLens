@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { type UserOut } from "@/lib/api/auth";
 import { useAuth } from "@/providers/AuthProvider";
@@ -23,7 +24,12 @@ export function TopBar({ user }: TopBarProps) {
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-6">
-      <div />
+      <Link
+        href="/app/upload"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+      >
+        + Upload recording
+      </Link>
       <div className="flex items-center gap-3">
         <button
           onClick={toggleDark}

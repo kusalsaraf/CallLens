@@ -62,10 +62,15 @@ const config: Config = {
           "0%": { opacity: "0" },
           "100%": { opacity: "1" },
         },
+        "pulse-slow": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.4" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.55s ease forwards",
         "fade-in": "fade-in 0.4s ease forwards",
+        "pulse-slow": "pulse-slow 2s ease-in-out infinite",
       },
     },
   },

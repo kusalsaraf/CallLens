@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { label: "Overview", href: "/app", icon: "⊞" },
-  { label: "Calls", href: "/app/calls", icon: "◎", placeholder: true },
+  { label: "Calls", href: "/app/calls", icon: "◎" },
+  { label: "Upload", href: "/app/upload", icon: "↑" },
   { label: "Agents", href: "/app/agents", icon: "↗", placeholder: true },
   { label: "Teams", href: "/app/teams", icon: "⊛", placeholder: true },
   { label: "Rubrics", href: "/app/rubrics", icon: "◻", placeholder: true },
@@ -27,7 +27,12 @@ export function Sidebar() {
 
       <nav className="flex flex-col gap-0.5 p-3 text-sm">
         {navItems.map(({ label, href, icon, placeholder }) => {
-          const isActive = pathname === href;
+          const isActive =
+            href === "/app/calls"
+              ? pathname.startsWith("/app/calls")
+              : href === "/app/upload"
+                ? pathname === "/app/upload"
+                : pathname === href;
           return (
             <Link
               key={href}
