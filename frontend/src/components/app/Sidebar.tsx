@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const navItems = [
+  { label: "Overview", href: "/app/overview", icon: "⊡" },
   { label: "Calls", href: "/app/calls", icon: "◎" },
   { label: "Upload", href: "/app/upload", icon: "↑" },
   { label: "Agents", href: "/app/agents", icon: "↗", placeholder: true },
@@ -28,11 +29,13 @@ export function Sidebar() {
       <nav className="flex flex-col gap-0.5 p-3 text-sm">
         {navItems.map(({ label, href, icon, placeholder }) => {
           const isActive =
-            href === "/app/calls"
-              ? pathname.startsWith("/app/calls")
-              : href === "/app/upload"
-                ? pathname === "/app/upload"
-                : pathname === href;
+            href === "/app/overview"
+              ? pathname === "/app/overview"
+              : href === "/app/calls"
+                ? pathname.startsWith("/app/calls")
+                : href === "/app/upload"
+                  ? pathname === "/app/upload"
+                  : pathname === href;
           return (
             <Link
               key={href}

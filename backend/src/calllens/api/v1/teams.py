@@ -21,12 +21,32 @@ from calllens.db.session import get_db
 from calllens.schemas.analytics import (
     TeamAgentComparisonOut,
     TeamAnalyticsOut,
+    TeamListOut,
+    TeamOut,
     TeamScoreBandOut,
 )
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
 _SCORED = Call.status == CallStatus.scored
+
+
+@router.get("/", response_model=TeamListOut)
+async def list_teams(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> TeamListOut:
+    """Return all teams ordered by name.
+
+    Args:
+        db: Database session.
+        current_user: Authenticated user.
+
+    Returns:
+        TeamListOut with id and name of every team.
+    """
+    rows = (await db.execute(select(Team).order_by(Team.name))).scalars().all()
+    return TeamListOut(items=[TeamOut(id=t.id, name=t.name) for t in rows])
 
 
 @router.get("/{team_id}/analytics", response_model=TeamAnalyticsOut)

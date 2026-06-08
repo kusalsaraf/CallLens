@@ -186,6 +186,20 @@ class AgentPerformanceOut(BaseModel):
     vs_team: VsTeamOut
 
 
+# ── Team list ─────────────────────────────────────────────────────────────────
+class TeamOut(BaseModel):
+    """Brief team representation for the filter selector."""
+
+    id: uuid.UUID
+    name: str
+
+
+class TeamListOut(BaseModel):
+    """All teams in the workspace."""
+
+    items: list[TeamOut]
+
+
 # ── Team analytics ────────────────────────────────────────────────────────────
 class TeamScoreBandOut(BaseModel):
     """Count of scored calls per quality band within a team."""
