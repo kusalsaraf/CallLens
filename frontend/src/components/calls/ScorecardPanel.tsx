@@ -9,8 +9,6 @@ import { DimensionScoreCard } from "./DimensionScoreCard";
 interface ScorecardPanelProps {
   callId: string;
   callStatus: CallStatus;
-  /** For "N of M scored" hint. Defaults to 6 (the full rubric). */
-  totalDimensions?: number;
   segments: SegmentOut[];
   onEvidenceClick?: (segmentId: string, startMs: number) => void;
   className?: string;
@@ -31,7 +29,6 @@ const PRE_SCORING_STATUSES = new Set<CallStatus>([
 export function ScorecardPanel({
   callId,
   callStatus,
-  totalDimensions = 6,
   segments,
   onEvidenceClick,
   className,
@@ -56,9 +53,9 @@ export function ScorecardPanel({
         <h3 className="text-sm font-semibold text-foreground">
           Quality Scorecard
         </h3>
-        {callStatus === "scored" && data && (
+        {callStatus === "scored" && data && data.scores.length > 0 && (
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {data.scores.length} of {totalDimensions} dimensions scored
+            {data.scores.length} dimension{data.scores.length !== 1 ? "s" : ""} scored
           </p>
         )}
       </div>

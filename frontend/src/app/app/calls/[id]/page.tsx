@@ -5,20 +5,29 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiDeleteCall,
+  apiGetAnalysis,
   apiGetCall,
+  apiGetTrace,
   apiGetTranscript,
   fetchAudioObjectUrl,
   isTerminalStatus,
+  type CallAnalysisOut,
   type CallOut,
   type CallStatus,
+  type TraceOut,
 } from "@/lib/api/calls";
 import { StatusBadge } from "@/components/calls/StatusBadge";
 import { CallStatusStepper } from "@/components/calls/CallStatusStepper";
 import { AudioPlayer, type AudioPlayerRef } from "@/components/calls/AudioPlayer";
 import { TranscriptPanel } from "@/components/calls/TranscriptPanel";
 import { ScorecardPanel } from "@/components/calls/ScorecardPanel";
+import { OverallScoreHero } from "@/components/calls/OverallScoreHero";
+import { EscalationBanner } from "@/components/calls/EscalationBanner";
+import { SummaryActionsCard } from "@/components/calls/SummaryActionsCard";
+import { ConversationDynamics } from "@/components/calls/ConversationDynamics";
+import { AgentRunTrace } from "@/components/calls/AgentRunTrace";
 import { Button } from "@/components/ui/button";
-import { formatDuration, formatRelative } from "@/lib/utils";
+import { formatRelative } from "@/lib/utils";
 
 export default function CallDetailPage() {
   const params = useParams<{ id: string }>();
@@ -40,6 +49,7 @@ export default function CallDetailPage() {
   });
 
   const terminal = call ? isTerminalStatus(call.status as CallStatus) : false;
+  const isScored = call?.status === "scored";
   const hasTranscript =
     call?.status === "transcribed" ||
     call?.status === "scoring" ||
@@ -51,7 +61,21 @@ export default function CallDetailPage() {
     enabled: hasTranscript,
   });
 
-  // Fetch audio blob URL when transcript is available
+  const { data: analysis } = useQuery<CallAnalysisOut>({
+    queryKey: ["call-analysis", callId],
+    queryFn: () => apiGetAnalysis(callId),
+    enabled: isScored,
+    staleTime: 30_000,
+  });
+
+  const { data: trace } = useQuery<TraceOut>({
+    queryKey: ["call-trace", callId],
+    queryFn: () => apiGetTrace(callId),
+    enabled: isScored,
+    staleTime: 30_000,
+  });
+
+  // Fetch audio blob URL once transcript is available
   useEffect(() => {
     if (!hasTranscript || audioUrl) return;
     fetchAudioObjectUrl(callId)
@@ -66,21 +90,25 @@ export default function CallDetailPage() {
     };
   }, [audioUrl]);
 
-  // When SSE stepper completes, invalidate and re-fetch the call and scores
   const handleStepperComplete = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ["call", callId] });
     await queryClient.invalidateQueries({ queryKey: ["calls"] });
     await queryClient.invalidateQueries({ queryKey: ["call-scores", callId] });
+    await queryClient.invalidateQueries({ queryKey: ["call-analysis", callId] });
+    await queryClient.invalidateQueries({ queryKey: ["call-trace", callId] });
   }, [callId, queryClient]);
 
   const handleSeek = useCallback((ms: number) => {
     audioPlayerRef.current?.seekTo(ms / 1000);
   }, []);
 
-  const handleEvidenceClick = useCallback((segmentId: string, startMs: number) => {
-    audioPlayerRef.current?.seekTo(startMs / 1000);
-    setFocusedSegmentId(segmentId);
-  }, []);
+  const handleEvidenceClick = useCallback(
+    (segmentId: string, startMs: number) => {
+      audioPlayerRef.current?.seekTo(startMs / 1000);
+      setFocusedSegmentId(segmentId);
+    },
+    [],
+  );
 
   async function handleDelete() {
     setIsDeleting(true);
@@ -112,40 +140,37 @@ export default function CallDetailPage() {
     );
   }
 
+  const segments = transcript?.segments ?? [];
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* ── Header ── */}
+    <div className="flex flex-col gap-4">
+      {/* ── Page header: breadcrumb + filename + meta + actions ── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => router.push("/app/calls")}
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              ← Calls
-            </button>
-          </div>
+          <button
+            onClick={() => router.push("/app/calls")}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← Calls
+          </button>
           <h1 className="font-display text-xl font-bold text-foreground">
             {call.original_filename}
           </h1>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <StatusBadge status={call.status as CallStatus} />
-            {call.duration_seconds != null && (
-              <span className="tabular">{formatDuration(call.duration_seconds)}</span>
-            )}
             <span>{formatRelative(call.created_at)}</span>
           </div>
         </div>
 
-        {/* Action buttons */}
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" disabled>
             Export to CRM
           </Button>
-
           {confirmDelete ? (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Delete this call?</span>
+              <span className="text-sm text-muted-foreground">
+                Delete this call?
+              </span>
               <Button
                 variant="destructive"
                 size="sm"
@@ -183,7 +208,7 @@ export default function CallDetailPage() {
         />
       )}
 
-      {/* ── Failed state detail ── */}
+      {/* ── Failed state ── */}
       {call.status === "failed" && call.status_detail && (
         <div className="rounded-lg border border-[hsl(var(--fail)/0.3)] bg-[hsl(var(--fail)/0.06)] p-4 text-sm text-[hsl(var(--fail))]">
           <p className="font-semibold">Processing failed</p>
@@ -191,31 +216,53 @@ export default function CallDetailPage() {
         </div>
       )}
 
-      {/* ── Main content area — two columns on desktop ── */}
+      {/* ── Two-column layout ── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
 
-        {/* ── Left column: Scorecard + Phase 4 placeholder ── */}
-        <div className="flex flex-col gap-4 lg:col-span-5">
+        {/* ── Left / main column ── */}
+        <div className="flex flex-col gap-4 lg:col-span-7">
+
+          {/* 1. Overall score hero (when scored) */}
+          {isScored && analysis && (
+            <OverallScoreHero
+              analysis={analysis}
+              durationSeconds={call.duration_seconds}
+            />
+          )}
+
+          {/* 2. Escalation banner */}
+          {isScored && analysis?.escalate_for_review && (
+            <EscalationBanner reason={analysis.escalation_reason ?? null} />
+          )}
+
+          {/* 3. Scorecard — all dimensions */}
           <ScorecardPanel
             callId={callId}
             callStatus={call.status as CallStatus}
-            segments={transcript?.segments ?? []}
+            segments={segments}
             onEvidenceClick={handleEvidenceClick}
           />
 
-          {/* Phase 4 placeholder — summary + key moments */}
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-sm font-semibold text-foreground">Summary & Key Moments</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              AI-generated call summary and flagged moments will appear here in a future phase.
-            </p>
-          </div>
+          {/* 4. Summary & actions (when scored) */}
+          {isScored && analysis && (
+            <SummaryActionsCard
+              analysis={analysis}
+              segments={segments}
+              onMomentClick={handleEvidenceClick}
+            />
+          )}
+
+          {/* 5. Conversation dynamics (when scored) */}
+          {isScored && analysis && (
+            <ConversationDynamics analysis={analysis} />
+          )}
+
+          {/* 6. Agent run trace (when scored) */}
+          {isScored && trace && <AgentRunTrace trace={trace} />}
         </div>
 
-        {/* ── Right column: sticky audio + transcript ── */}
-        <div className="flex flex-col gap-4 lg:col-span-7 lg:self-start lg:sticky lg:top-4">
-
-          {/* Audio player — shown when transcript available */}
+        {/* ── Right / sticky column: audio + transcript ── */}
+        <div className="flex flex-col gap-4 lg:col-span-5 lg:self-start lg:sticky lg:top-4">
           {hasTranscript && audioUrl && (
             <AudioPlayer
               ref={audioPlayerRef}
@@ -223,11 +270,9 @@ export default function CallDetailPage() {
               onTimeUpdate={setCurrentTimeSec}
             />
           )}
-
-          {/* Transcript panel */}
           {hasTranscript && (
             <TranscriptPanel
-              segments={transcript?.segments ?? []}
+              segments={segments}
               currentTimeSec={currentTimeSec}
               onSeek={handleSeek}
               focusedSegmentId={focusedSegmentId ?? undefined}

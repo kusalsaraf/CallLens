@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
-  scoreBand,
+  apiBandToScoreBand,
+  API_BAND_LABEL,
   BAND_LABEL,
   BAND_TEXT_CLASS,
   BAND_BG_CLASS,
@@ -42,8 +43,11 @@ export function DimensionScoreCard({
 }: DimensionScoreCardProps) {
   const [rationaleOpen, setRationaleOpen] = useState(false);
 
-  const band = scoreBand(scoreData.score);
-  const bandLabel = BAND_LABEL[band];
+  // Prefer the API-returned band; fall back to client-side scoreBand().
+  const band = apiBandToScoreBand(scoreData.band, scoreData.score);
+  const bandLabel = scoreData.band
+    ? (API_BAND_LABEL[scoreData.band] ?? BAND_LABEL[band])
+    : BAND_LABEL[band];
   const textClass = BAND_TEXT_CLASS[band];
   const bgClass = BAND_BG_CLASS[band];
   const ringClass = BAND_RING_CLASS[band];
@@ -139,6 +143,24 @@ export function DimensionScoreCard({
           </div>
         </div>
       </div>
+
+      {/* ── Compliance pass/fail badge ── */}
+      {scoreData.dimension.key === "compliance" && (
+        <div
+          data-testid="compliance-badge"
+          className={cn(
+            "flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium",
+            band === "quality"
+              ? "bg-[hsl(var(--quality)/0.08)] text-[hsl(var(--quality))]"
+              : "bg-[hsl(var(--fail)/0.08)] text-[hsl(var(--fail))]",
+          )}
+        >
+          <span aria-hidden="true">{band === "quality" ? "✓" : "✗"}</span>
+          {band === "quality"
+            ? "All required phrases confirmed"
+            : "Required phrases missed — see evidence and rationale"}
+        </div>
+      )}
 
       {/* ── Unsupported warning ── */}
       {!scoreData.is_supported && (

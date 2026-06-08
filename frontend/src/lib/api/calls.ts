@@ -81,6 +81,51 @@ export interface CallScoreOut {
   is_supported: boolean;
   scored_at: string;
   evidence: EvidenceOut[];
+  // API band returned by backend since Phase 4B; use apiBandToScoreBand() to map to
+  // the frontend ScoreBand type. Phase 3B scoreBand() is kept as the fallback.
+  band?: string;
+}
+
+export interface KeyMomentOut {
+  segment_id: string;
+  label: string;
+}
+
+export interface CallAnalysisOut {
+  id: string;
+  call_id: string;
+  overall_score: number;
+  summary: string;
+  key_moments: KeyMomentOut[];
+  action_items: string[];
+  sentiment_overall: string | null;
+  talk_listen_ratio: number;
+  interruptions: number;
+  longest_monologue_ms: number;
+  total_turns: number;
+  compliance_passed: boolean;
+  escalate_for_review: boolean;
+  escalation_reason: string | null;
+  created_at: string;
+}
+
+export interface AgentRunOut {
+  id: string;
+  node: string;
+  role: string;
+  provider: string;
+  score: number | null;
+  confidence: number | null;
+  evidence_kept: number;
+  evidence_dropped: number;
+  duration_ms: number;
+  detail: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface TraceOut {
+  call_id: string;
+  runs: AgentRunOut[];
 }
 
 export interface ScoresListOut {
@@ -138,6 +183,14 @@ export async function apiGetTranscript(id: string): Promise<TranscriptOut> {
 
 export async function apiGetScores(callId: string): Promise<ScoresListOut> {
   return apiFetch<ScoresListOut>(`/api/v1/calls/${callId}/scores`);
+}
+
+export async function apiGetAnalysis(callId: string): Promise<CallAnalysisOut> {
+  return apiFetch<CallAnalysisOut>(`/api/v1/calls/${callId}/analysis`);
+}
+
+export async function apiGetTrace(callId: string): Promise<TraceOut> {
+  return apiFetch<TraceOut>(`/api/v1/calls/${callId}/trace`);
 }
 
 export async function apiDeleteCall(id: string): Promise<void> {

@@ -1,5 +1,6 @@
-// Score band thresholds — the API may return the band directly in a later phase;
-// this is the interim single source of truth for client-side band classification.
+// Score band thresholds — the API now returns a band field per score (Phase 4B+).
+// apiBandToScoreBand() maps it to our three-way visual system.
+// scoreBand() is kept as the fallback when no API band is present.
 export type ScoreBand = "quality" | "at-risk" | "fail";
 
 /** Return the quality band for a 0–100 score. */
@@ -40,4 +41,24 @@ export const BAND_BORDER_CLASS: Record<ScoreBand, string> = {
   quality: "border-quality/30",
   "at-risk": "border-[hsl(var(--at-risk)/0.3)]",
   fail: "border-[hsl(var(--fail)/0.3)]",
+};
+
+// ── API band → frontend ScoreBand ────────────────────────────────────────────
+// Backend uses: "excellent"(90+) | "good"(70+) | "fair"(50+) | "poor"(<50)
+// Prefer the API band when available; fall back to scoreBand(score).
+export function apiBandToScoreBand(
+  apiBand: string | undefined,
+  scoreFallback: number,
+): ScoreBand {
+  if (apiBand === "excellent" || apiBand === "good") return "quality";
+  if (apiBand === "fair") return "at-risk";
+  if (apiBand === "poor") return "fail";
+  return scoreBand(scoreFallback);
+}
+
+export const API_BAND_LABEL: Record<string, string> = {
+  excellent: "Excellent",
+  good: "Good",
+  fair: "Fair",
+  poor: "Poor",
 };
