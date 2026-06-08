@@ -9,6 +9,8 @@ from sqlalchemy import Integer, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from calllens.core.deps import get_current_user
+from calllens.core.scoring import AT_RISK_THRESHOLD, QUALITY_THRESHOLD
+from calllens.core.scoring import band as band_from_score
 from calllens.db.models.agent import Agent
 from calllens.db.models.analysis import CallAnalysis
 from calllens.db.models.call import Call, CallStatus
@@ -16,9 +18,6 @@ from calllens.db.models.team import Team
 from calllens.db.models.user import User
 from calllens.db.session import get_db
 from calllens.schemas.analytics import (
-    AT_RISK_SCORE_THRESHOLD,
-    FAIL_BAND_THRESHOLD,
-    QUALITY_BAND_THRESHOLD,
     AnalyticsFilters,
     BandDistributionOut,
     ComplianceOut,
@@ -32,7 +31,6 @@ from calllens.schemas.analytics import (
     QualityTrendsOut,
     ScoreBucketOut,
     ScoreDistributionOut,
-    classify_call_band,
 )
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -41,7 +39,7 @@ _SCORED = Call.status == CallStatus.scored
 
 _at_risk_clause = or_(
     CallAnalysis.escalate_for_review == True,  # noqa: E712
-    CallAnalysis.overall_score < AT_RISK_SCORE_THRESHOLD,
+    CallAnalysis.overall_score < QUALITY_THRESHOLD,
 )
 
 
@@ -200,16 +198,14 @@ async def get_score_distribution(
 
     band_stmt = (
         select(
-            func.count()
-            .filter(CallAnalysis.overall_score >= QUALITY_BAND_THRESHOLD)
-            .label("quality"),
+            func.count().filter(CallAnalysis.overall_score >= QUALITY_THRESHOLD).label("quality"),
             func.count()
             .filter(
-                (CallAnalysis.overall_score >= FAIL_BAND_THRESHOLD)
-                & (CallAnalysis.overall_score < QUALITY_BAND_THRESHOLD)
+                (CallAnalysis.overall_score >= AT_RISK_THRESHOLD)
+                & (CallAnalysis.overall_score < QUALITY_THRESHOLD)
             )
             .label("at_risk"),
-            func.count().filter(CallAnalysis.overall_score < FAIL_BAND_THRESHOLD).label("fail"),
+            func.count().filter(CallAnalysis.overall_score < AT_RISK_THRESHOLD).label("fail"),
         )
         .select_from(Call)
         .join(CallAnalysis, CallAnalysis.call_id == Call.id)
@@ -336,7 +332,7 @@ async def get_flagged(
                 call_id=row.id,
                 agent_name=row.agent_name,
                 overall_score=row.overall_score,
-                band=classify_call_band(row.overall_score),
+                band=band_from_score(row.overall_score),
                 escalate_for_review=row.escalate_for_review,
                 escalation_reason=row.escalation_reason,
                 uploaded_at=row.uploaded_at,
@@ -410,7 +406,7 @@ async def get_leaderboard(
                     if row.calls_scored > 0
                     else 0.0
                 ),
-                is_at_risk=round(float(row.avg_score), 1) < AT_RISK_SCORE_THRESHOLD,
+                is_at_risk=round(float(row.avg_score), 1) < QUALITY_THRESHOLD,
             )
             for row in rows
         ]

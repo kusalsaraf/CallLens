@@ -111,7 +111,7 @@ async def test_get_scores_includes_band(
     assert len(body["scores"]) > 0
     for score in body["scores"]:
         assert "band" in score
-        assert score["band"] in ("excellent", "good", "fair", "poor")
+        assert score["band"] in ("quality", "at-risk", "fail")
 
 
 async def test_get_trace_returns_runs(

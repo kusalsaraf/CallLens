@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from httpx import AsyncClient
 
-from calllens.schemas.analytics import AT_RISK_SCORE_THRESHOLD
+from calllens.core.scoring import QUALITY_THRESHOLD
 from tests.conftest import AnalyticsDataset
 
 # ── 401 guards ────────────────────────────────────────────────────────────────
@@ -52,7 +52,8 @@ async def test_overview_totals(
     assert abs(body["avg_overall_score"] - 61.7) < 0.5
     # compliance_pass_rate = 4/6 ≈ 0.6667
     assert abs(body["compliance_pass_rate"] - 0.6667) < 0.001
-    assert body["flagged_count"] == 3
+    # flagged = score<80 OR escalate: c3(55), c4(40,esc), c5(75), c6(30,esc)
+    assert body["flagged_count"] == 4
 
 
 async def test_overview_agent_filter(
@@ -80,9 +81,9 @@ async def test_overview_team_filter(
     )
     assert resp.status_code == 200
     body = resp.json()
-    # Beta: B1 with scores 75 (not flagged) and 30 (flagged)
+    # Beta: B1 scores 75 (<80, flagged) and 30 (escalate, flagged)
     assert body["calls_scored"] == 2
-    assert body["flagged_count"] == 1
+    assert body["flagged_count"] == 2
 
 
 async def test_overview_date_filter(
@@ -171,9 +172,10 @@ async def test_score_distribution_bands(
     )
     body = resp.json()
     bands = body["bands"]
-    assert bands["quality"] == 3  # 75, 80, 90
-    assert bands["at_risk"] == 1  # 55
-    assert bands["fail"] == 2  # 30, 40
+    # quality >=80: 80, 90; at-risk 60-79: 75; fail <60: 30, 40, 55
+    assert bands["quality"] == 2
+    assert bands["at_risk"] == 1  # 75
+    assert bands["fail"] == 3  # 30, 40, 55
     assert bands["quality"] + bands["at_risk"] + bands["fail"] == 6
 
 
@@ -214,12 +216,11 @@ async def test_flagged_returns_at_risk_calls(
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["total"] == 3
-    assert len(body["items"]) == 3
+    # c3(55), c4(40,esc), c5(75), c6(30,esc) — 4 calls with band != quality
+    assert body["total"] == 4
+    assert len(body["items"]) == 4
     for item in body["items"]:
-        assert (
-            item["escalate_for_review"] is True or item["overall_score"] < AT_RISK_SCORE_THRESHOLD
-        )
+        assert item["escalate_for_review"] is True or item["overall_score"] < QUALITY_THRESHOLD
 
 
 async def test_flagged_newest_first(
@@ -243,7 +244,7 @@ async def test_flagged_pagination(
         headers={"Authorization": f"Bearer {auth_token}"},
     )
     body = resp.json()
-    assert body["total"] == 3
+    assert body["total"] == 4
     assert len(body["items"]) == 2
 
     resp2 = await client.get(
@@ -251,7 +252,7 @@ async def test_flagged_pagination(
         params={"limit": 2, "offset": 2},
         headers={"Authorization": f"Bearer {auth_token}"},
     )
-    assert len(resp2.json()["items"]) == 1
+    assert len(resp2.json()["items"]) == 2
 
 
 async def test_flagged_agent_filter(

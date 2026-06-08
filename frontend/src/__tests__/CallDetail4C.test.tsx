@@ -65,7 +65,7 @@ const SAMPLE_SCORES = [
     is_supported: true,
     scored_at: "2026-06-08T10:00:00Z",
     evidence: [{ id: "e1", segment_id: "seg-a", quote: "I understand your frustration" }],
-    band: "excellent",
+    band: "quality",
   },
   {
     id: "s2",
@@ -76,7 +76,7 @@ const SAMPLE_SCORES = [
     is_supported: true,
     scored_at: "2026-06-08T10:00:00Z",
     evidence: [{ id: "e2", segment_id: "seg-a", quote: "I understand your frustration" }],
-    band: "fair",
+    band: "fail",
   },
 ];
 
@@ -179,20 +179,20 @@ describe("ScorecardPanel — all dimensions with band colors and compliance", ()
     expect(screen.getByText("Compliance")).toBeInTheDocument();
   });
 
-  it("shows 'Excellent' label for API band=excellent", async () => {
+  it("shows 'Good' label for API band=quality", async () => {
     mockApiGetScores.mockResolvedValue({ call_id: "call-1", scores: [SAMPLE_SCORES[0]] });
     withQuery(
       <ScorecardPanel callId="call-1" callStatus="scored" segments={[SEGMENT_A]} />,
     );
-    await waitFor(() => expect(screen.getByText("Excellent")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Good")).toBeInTheDocument());
   });
 
-  it("shows 'Fair' label for API band=fair", async () => {
+  it("shows 'Poor' label for API band=fail", async () => {
     mockApiGetScores.mockResolvedValue({ call_id: "call-1", scores: [SAMPLE_SCORES[1]] });
     withQuery(
       <ScorecardPanel callId="call-1" callStatus="scored" segments={[SEGMENT_A]} />,
     );
-    await waitFor(() => expect(screen.getByText("Fair")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Poor")).toBeInTheDocument());
   });
 
   it("renders compliance badge for the compliance dimension", async () => {

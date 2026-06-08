@@ -9,26 +9,15 @@ from typing import Annotated
 from fastapi import Query
 from pydantic import BaseModel
 
-# ── Shared constants ──────────────────────────────────────────────────────────
-AT_RISK_SCORE_THRESHOLD: int = 60  # mirrors supervisor._ESCALATION_SCORE_THRESHOLD
-QUALITY_BAND_THRESHOLD: int = 70  # overall_score >= 70 → "quality"
-FAIL_BAND_THRESHOLD: int = 50  # overall_score < 50 → "fail"; 50-69 → "at_risk"
+from calllens.core.scoring import AT_RISK_THRESHOLD, QUALITY_THRESHOLD
+from calllens.core.scoring import band as band_from_score
 
-
-def classify_call_band(score: int) -> str:
-    """Classify an overall call score into quality / at_risk / fail.
-
-    Args:
-        score: Integer overall score 0-100.
-
-    Returns:
-        One of "quality", "at_risk", or "fail".
-    """
-    if score >= QUALITY_BAND_THRESHOLD:
-        return "quality"
-    if score >= FAIL_BAND_THRESHOLD:
-        return "at_risk"
-    return "fail"
+# Re-export so callers can import a single name without knowing the internal module.
+__all__ = [
+    "QUALITY_THRESHOLD",
+    "AT_RISK_THRESHOLD",
+    "band_from_score",
+]
 
 
 # ── Shared filter dependency ──────────────────────────────────────────────────

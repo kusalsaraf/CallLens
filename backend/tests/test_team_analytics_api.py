@@ -48,9 +48,10 @@ async def test_team_analytics_alpha_bands(
     )
     body = resp.json()
     bands = body["score_distribution"]
-    assert bands["quality"] == 2  # 80, 90
-    assert bands["at_risk"] == 1  # 55
-    assert bands["fail"] == 1  # 40
+    # quality >=80: 80, 90; at-risk 60-79: none; fail <60: 40, 55
+    assert bands["quality"] == 2
+    assert bands["at_risk"] == 0
+    assert bands["fail"] == 2
 
 
 async def test_team_analytics_agent_comparison(

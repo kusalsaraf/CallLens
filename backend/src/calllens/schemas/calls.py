@@ -5,6 +5,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, computed_field
 
+from calllens.core.scoring import band as _band
+
 
 class CallOut(BaseModel):
     """Public representation of a Call row."""
@@ -117,14 +119,8 @@ class CallScoreOut(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def band(self) -> str:
-        """Score band classification: excellent ≥90, good ≥70, fair ≥50, poor <50."""
-        if self.score >= 90:
-            return "excellent"
-        if self.score >= 70:
-            return "good"
-        if self.score >= 50:
-            return "fair"
-        return "poor"
+        """Score band: quality ≥80, at-risk 60-79, fail <60 (canonical from core.scoring)."""
+        return _band(self.score)
 
 
 class ScoresListOut(BaseModel):

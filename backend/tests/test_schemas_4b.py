@@ -23,20 +23,28 @@ def _make_score(score: int) -> CallScoreOut:
     )
 
 
-def test_band_excellent() -> None:
-    assert _make_score(95).band == "excellent"
+def test_band_quality_high() -> None:
+    assert _make_score(95).band == "quality"
 
 
-def test_band_good() -> None:
-    assert _make_score(80).band == "good"
+def test_band_quality_boundary() -> None:
+    assert _make_score(80).band == "quality"
 
 
-def test_band_fair() -> None:
-    assert _make_score(55).band == "fair"
+def test_band_at_risk() -> None:
+    assert _make_score(75).band == "at-risk"
 
 
-def test_band_poor() -> None:
-    assert _make_score(30).band == "poor"
+def test_band_at_risk_boundary() -> None:
+    assert _make_score(60).band == "at-risk"
+
+
+def test_band_fail() -> None:
+    assert _make_score(55).band == "fail"
+
+
+def test_band_fail_low() -> None:
+    assert _make_score(30).band == "fail"
 
 
 def test_analysis_schema_roundtrip() -> None:

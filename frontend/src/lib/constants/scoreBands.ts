@@ -1,9 +1,15 @@
-// Score band thresholds — the API now returns a band field per score (Phase 4B+).
-// apiBandToScoreBand() maps it to our three-way visual system.
-// scoreBand() is kept as the fallback when no API band is present.
+// Score band thresholds — the API band field is authoritative (Phase 4B+).
+// apiBandToScoreBand() maps API band strings to our three-way visual system.
+// scoreBand() is kept ONLY as a fallback when no API band is present.
 export type ScoreBand = "quality" | "at-risk" | "fail";
 
-/** Return the quality band for a 0–100 score. */
+/**
+ * Classify a 0-100 score into the canonical quality band.
+ * Mirror of backend core/scoring.py — keep in sync; the API band is authoritative.
+ *   quality  >= 80
+ *   at-risk  60 – 79
+ *   fail     < 60
+ */
 export function scoreBand(score: number): ScoreBand {
   if (score >= 80) return "quality";
   if (score >= 60) return "at-risk";
@@ -44,21 +50,21 @@ export const BAND_BORDER_CLASS: Record<ScoreBand, string> = {
 };
 
 // ── API band → frontend ScoreBand ────────────────────────────────────────────
-// Backend uses: "excellent"(90+) | "good"(70+) | "fair"(50+) | "poor"(<50)
+// Canonical API band values (from backend core/scoring.py): "quality" | "at-risk" | "fail"
 // Prefer the API band when available; fall back to scoreBand(score).
 export function apiBandToScoreBand(
   apiBand: string | undefined,
   scoreFallback: number,
 ): ScoreBand {
-  if (apiBand === "excellent" || apiBand === "good") return "quality";
-  if (apiBand === "fair") return "at-risk";
-  if (apiBand === "poor") return "fail";
+  // Canonical values — pass straight through
+  if (apiBand === "quality") return "quality";
+  if (apiBand === "at-risk") return "at-risk";
+  if (apiBand === "fail") return "fail";
   return scoreBand(scoreFallback);
 }
 
 export const API_BAND_LABEL: Record<string, string> = {
-  excellent: "Excellent",
-  good: "Good",
-  fair: "Fair",
-  poor: "Poor",
+  quality: "Good",
+  "at-risk": "At Risk",
+  fail: "Poor",
 };

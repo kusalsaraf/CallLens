@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from calllens.core.deps import get_current_user
 from calllens.core.exceptions import NotFoundError
+from calllens.core.scoring import AT_RISK_THRESHOLD, QUALITY_THRESHOLD
 from calllens.db.models.agent import Agent
 from calllens.db.models.analysis import CallAnalysis
 from calllens.db.models.call import Call, CallStatus
@@ -18,8 +19,6 @@ from calllens.db.models.team import Team
 from calllens.db.models.user import User
 from calllens.db.session import get_db
 from calllens.schemas.analytics import (
-    FAIL_BAND_THRESHOLD,
-    QUALITY_BAND_THRESHOLD,
     TeamAgentComparisonOut,
     TeamAnalyticsOut,
     TeamScoreBandOut,
@@ -61,16 +60,16 @@ async def get_team_analytics(
             .filter(CallAnalysis.compliance_passed == True)  # noqa: E712
             .label("compliance_passed_count"),
             func.count(CallAnalysis.id)
-            .filter(CallAnalysis.overall_score >= QUALITY_BAND_THRESHOLD)
+            .filter(CallAnalysis.overall_score >= QUALITY_THRESHOLD)
             .label("quality"),
             func.count(CallAnalysis.id)
             .filter(
-                (CallAnalysis.overall_score >= FAIL_BAND_THRESHOLD)
-                & (CallAnalysis.overall_score < QUALITY_BAND_THRESHOLD)
+                (CallAnalysis.overall_score >= AT_RISK_THRESHOLD)
+                & (CallAnalysis.overall_score < QUALITY_THRESHOLD)
             )
             .label("at_risk"),
             func.count(CallAnalysis.id)
-            .filter(CallAnalysis.overall_score < FAIL_BAND_THRESHOLD)
+            .filter(CallAnalysis.overall_score < AT_RISK_THRESHOLD)
             .label("fail"),
         )
         .select_from(Call)

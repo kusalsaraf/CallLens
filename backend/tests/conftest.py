@@ -18,7 +18,6 @@ from calllens.db.models.call import Call, CallStatus
 from calllens.db.models.team import Team
 from calllens.db.session import get_db
 from calllens.main import app
-from calllens.schemas.analytics import AT_RISK_SCORE_THRESHOLD  # noqa: F401
 from calllens.services.seed import seed_defaults
 
 _JUNE_1 = datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
