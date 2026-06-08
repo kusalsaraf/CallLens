@@ -15,9 +15,17 @@ from calllens.db.models.agent import Agent
 from calllens.db.models.analysis import CallAnalysis
 from calllens.db.models.call import Call, CallStatus
 from calllens.db.models.coaching import CoachingNote
+from calllens.db.models.rubric import RubricDimension
+from calllens.db.models.scoring import CallScore
 from calllens.db.models.user import User
 from calllens.db.session import get_db
 from calllens.schemas.analysis import AgentListOut, AgentStatsOut, CoachingListOut, CoachingNoteOut
+from calllens.schemas.analytics import (
+    AgentPerformanceOut,
+    DimensionBreakdownOut,
+    TrendPointOut,
+    VsTeamOut,
+)
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -147,4 +155,114 @@ async def get_agent_coaching(
     return CoachingListOut(
         items=[CoachingNoteOut.model_validate(n) for n in notes],
         agent_id=agent_id,
+    )
+
+
+@router.get("/{agent_id}/performance", response_model=AgentPerformanceOut)
+async def get_agent_performance(
+    agent_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentPerformanceOut:
+    """Return detailed scoring performance for one agent.
+
+    Args:
+        agent_id: UUID of the agent.
+        db: Database session.
+        current_user: Authenticated user.
+
+    Returns:
+        AgentPerformanceOut with weekly trend, dimension breakdown, and team comparison.
+
+    Raises:
+        NotFoundError: If the agent does not exist.
+    """
+    agent_row = (await db.execute(select(Agent).where(Agent.id == agent_id))).scalar_one_or_none()
+    if agent_row is None:
+        raise NotFoundError(f"Agent {agent_id} not found")
+
+    scored = Call.status == CallStatus.scored
+
+    stats_stmt = (
+        select(
+            func.count(CallAnalysis.id).label("calls_scored"),
+            func.avg(CallAnalysis.overall_score).label("avg_score"),
+        )
+        .select_from(Call)
+        .join(CallAnalysis, CallAnalysis.call_id == Call.id)
+        .where(scored)
+        .where(Call.agent_id == agent_id)
+    )
+    stats = (await db.execute(stats_stmt)).one()
+    calls_scored: int = stats.calls_scored or 0
+    avg_score: float = round(float(stats.avg_score or 0), 1)
+
+    week_col = func.date_trunc("week", Call.created_at).label("week_bucket")
+    trend_stmt = (
+        select(week_col, func.avg(CallAnalysis.overall_score).label("avg"))
+        .select_from(Call)
+        .join(CallAnalysis, CallAnalysis.call_id == Call.id)
+        .where(scored)
+        .where(Call.agent_id == agent_id)
+        .group_by(week_col)
+        .order_by(week_col)
+    )
+    trend_rows = (await db.execute(trend_stmt)).all()
+    trend = [
+        TrendPointOut(
+            date=row.week_bucket.strftime("%Y-%m-%d"),
+            avg_overall_score=round(float(row.avg), 1),
+        )
+        for row in trend_rows
+    ]
+
+    dim_stmt = (
+        select(
+            RubricDimension.key,
+            RubricDimension.name,
+            func.avg(CallScore.score).label("avg_score"),
+        )
+        .select_from(CallScore)
+        .join(RubricDimension, RubricDimension.id == CallScore.dimension_id)
+        .join(Call, Call.id == CallScore.call_id)
+        .where(scored)
+        .where(Call.agent_id == agent_id)
+        .group_by(RubricDimension.id, RubricDimension.key, RubricDimension.name)
+        .order_by(RubricDimension.key)
+    )
+    dim_rows = (await db.execute(dim_stmt)).all()
+    dimension_breakdown = [
+        DimensionBreakdownOut(
+            dimension_key=row.key,
+            dimension_name=row.name,
+            avg_score=round(float(row.avg_score), 1),
+        )
+        for row in dim_rows
+    ]
+
+    vs_stmt = (
+        select(
+            func.avg(CallAnalysis.overall_score)
+            .filter(Call.agent_id == agent_id)
+            .label("agent_avg"),
+            func.avg(CallAnalysis.overall_score).label("team_avg"),
+        )
+        .select_from(Call)
+        .join(CallAnalysis, CallAnalysis.call_id == Call.id)
+        .join(Agent, Agent.id == Call.agent_id)
+        .where(scored)
+        .where(Agent.team_id == agent_row.team_id)
+    )
+    vs_row = (await db.execute(vs_stmt)).one()
+    vs_team = VsTeamOut(
+        agent_avg=round(float(vs_row.agent_avg or 0), 1),
+        team_avg=round(float(vs_row.team_avg or 0), 1),
+    )
+
+    return AgentPerformanceOut(
+        calls_scored=calls_scored,
+        avg_overall_score=avg_score,
+        trend=trend,
+        dimension_breakdown=dimension_breakdown,
+        vs_team=vs_team,
     )

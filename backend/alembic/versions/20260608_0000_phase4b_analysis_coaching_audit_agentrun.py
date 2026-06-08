@@ -6,16 +6,16 @@ Create Date: 2026-06-08 00:00:00.000000
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "phase4b_analysis"
-down_revision: Union[str, None] = "phase3a_scoring"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "phase3a_scoring"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -44,12 +44,8 @@ def upgrade() -> None:
             "longest_monologue_ms", sa.Integer(), nullable=False, server_default=sa.text("0")
         ),
         sa.Column("total_turns", sa.Integer(), nullable=False, server_default=sa.text("0")),
-        sa.Column(
-            "compliance_passed", sa.Boolean(), nullable=False, server_default=sa.true()
-        ),
-        sa.Column(
-            "escalate_for_review", sa.Boolean(), nullable=False, server_default=sa.false()
-        ),
+        sa.Column("compliance_passed", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("escalate_for_review", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("escalation_reason", sa.Text(), nullable=True),
         sa.Column(
             "created_at",
@@ -61,9 +57,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("call_id", name="uq_call_analyses_call_id"),
     )
-    op.create_index(
-        op.f("ix_call_analyses_call_id"), "call_analyses", ["call_id"], unique=True
-    )
+    op.create_index(op.f("ix_call_analyses_call_id"), "call_analyses", ["call_id"], unique=True)
 
     op.create_table(
         "coaching_notes",
@@ -90,9 +84,7 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_coaching_notes_agent_id"), "coaching_notes", ["agent_id"], unique=False
     )
-    op.create_index(
-        op.f("ix_coaching_notes_call_id"), "coaching_notes", ["call_id"], unique=False
-    )
+    op.create_index(op.f("ix_coaching_notes_call_id"), "coaching_notes", ["call_id"], unique=False)
 
     op.create_table(
         "audit_logs",
@@ -125,15 +117,9 @@ def upgrade() -> None:
         sa.Column("provider", sa.String(length=64), nullable=False),
         sa.Column("score", sa.Integer(), nullable=True),
         sa.Column("confidence", sa.Float(), nullable=True),
-        sa.Column(
-            "evidence_kept", sa.Integer(), nullable=False, server_default=sa.text("0")
-        ),
-        sa.Column(
-            "evidence_dropped", sa.Integer(), nullable=False, server_default=sa.text("0")
-        ),
-        sa.Column(
-            "duration_ms", sa.Integer(), nullable=False, server_default=sa.text("0")
-        ),
+        sa.Column("evidence_kept", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("evidence_dropped", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("duration_ms", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column(
             "detail",
             postgresql.JSONB(astext_type=sa.Text()),

@@ -5,7 +5,8 @@ Revises: 6a831ce6d751
 Create Date: 2026-06-07 12:00:00.000000
 
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
@@ -13,9 +14,9 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "phase3a_scoring"
-down_revision: Union[str, None] = "6a831ce6d751"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "6a831ce6d751"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -94,9 +95,7 @@ def upgrade() -> None:
         sa.Column("segment_id", sa.Uuid(), nullable=True),
         sa.Column("quote", sa.Text(), nullable=False),
         sa.ForeignKeyConstraint(["call_score_id"], ["call_scores.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(
-            ["segment_id"], ["transcript_segments.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["segment_id"], ["transcript_segments.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
