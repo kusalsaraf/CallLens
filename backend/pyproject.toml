@@ -47,6 +47,7 @@ agents = [
     "langchain-core>=0.2.0",
     "langchain-google-genai>=1.0.0",
     "langchain-groq>=0.1.0",
+    "langgraph>=0.2.0",
 ]
 
 [project.scripts]
@@ -68,6 +69,7 @@ agents = [
     "langchain-core>=0.2.0",
     "langchain-google-genai>=1.0.0",
     "langchain-groq>=0.1.0",
+    "langgraph>=0.2.0",
 ]
 
 [tool.ruff]
@@ -144,6 +146,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["langchain_groq.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["langgraph.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -27,6 +27,17 @@ class TranscriptSegmentData(TypedDict):
     speaker: str
 
 
+class TimedTranscriptSegmentData(TypedDict):
+    """Transcript segment with timing fields for metrics computation."""
+
+    id: uuid.UUID
+    sequence: int
+    text: str
+    speaker: str
+    start_ms: int
+    end_ms: int
+
+
 # ---------------------------------------------------------------------------
 # Pydantic schemas
 # ---------------------------------------------------------------------------
@@ -61,6 +72,22 @@ class AgentScore(BaseModel):
         return max(0.0, min(1.0, float(v)))  # type: ignore[arg-type]
 
 
+class KeyMomentRef(BaseModel):
+    """A notable moment in the call tied to a specific transcript segment."""
+
+    segment_id: uuid.UUID
+    label: str  # e.g. "Agent empathy peak", "Customer objection"
+
+
+class SupervisorNarrative(BaseModel):
+    """LLM-generated narrative output from the supervisor node."""
+
+    summary: str
+    key_moments: list[KeyMomentRef]
+    action_items: list[str]
+    coaching_note: str
+
+
 # ---------------------------------------------------------------------------
 # Protocol
 # ---------------------------------------------------------------------------
@@ -85,6 +112,25 @@ class LLMProvider(Protocol):
 
         Returns:
             An AgentScore with score, confidence, rationale, and evidence.
+        """
+        ...
+
+    async def generate_narrative(
+        self,
+        system: str,
+        user: str,
+        transcript_segments: list[TranscriptSegmentData],
+    ) -> SupervisorNarrative:
+        """Generate a narrative summary for the supervisor.
+
+        Args:
+            system: System prompt for the supervisor role.
+            user: User prompt containing scored results and transcript context.
+            transcript_segments: All base segments (used to pick real segment IDs
+                for key_moments in stub; passed for context to real providers).
+
+        Returns:
+            A SupervisorNarrative with summary, key_moments, action_items, coaching_note.
         """
         ...
 
@@ -144,6 +190,48 @@ class StubLLMProvider:
             evidence=evidence,
         )
 
+    async def generate_narrative(
+        self,
+        system: str,
+        user: str,
+        transcript_segments: list[TranscriptSegmentData],
+    ) -> SupervisorNarrative:
+        """Return deterministic plausible narrative with real segment IDs as key_moments.
+
+        Args:
+            system: Unused by stub.
+            user: Unused by stub.
+            transcript_segments: Used to pick real segment IDs for key_moments.
+
+        Returns:
+            A SupervisorNarrative with one key_moment referencing a real segment.
+        """
+        agent_segs = [s for s in transcript_segments if s["speaker"].lower().startswith("agent")]
+        candidates = agent_segs if agent_segs else transcript_segments
+
+        key_moments: list[KeyMomentRef] = []
+        if candidates:
+            key_moments = [
+                KeyMomentRef(segment_id=candidates[0]["id"], label="Agent response quality")
+            ]
+
+        logger.debug("StubLLMProvider.generate_narrative: returning stub narrative")
+        return SupervisorNarrative(
+            summary=(
+                "Stub: call handled adequately. Agent demonstrated empathy and followed "
+                "most of the support call structure."
+            ),
+            key_moments=key_moments,
+            action_items=[
+                "Review compliance phrasing with agent.",
+                "Encourage more active listening.",
+            ],
+            coaching_note=(
+                "Stub coaching note: focus on script adherence during the opening and "
+                "ensure all required compliance phrases are used on every call."
+            ),
+        )
+
 
 # ---------------------------------------------------------------------------
 # LangchainLLMProvider (optional — guarded against missing dependencies)
@@ -174,11 +262,11 @@ try:
             self._provider = provider
             self._chain: Any = None
 
-        def _build_chain(self) -> Any:
-            """Construct and cache the structured-output LangChain chain.
+        def _get_llm(self) -> Any:
+            """Construct and return the raw LangChain chat model (not structured).
 
             Returns:
-                A LangChain Runnable that produces AgentScore instances.
+                A LangChain chat model instance.
 
             Raises:
                 ImportError: If the provider-specific langchain package is missing.
@@ -187,21 +275,27 @@ try:
             if self._provider == "google":
                 from langchain_google_genai import ChatGoogleGenerativeAI
 
-                llm = ChatGoogleGenerativeAI(
+                return ChatGoogleGenerativeAI(
                     model=self._model_name,
                     google_api_key=self._api_key,
                 )
             elif self._provider == "groq":
                 from langchain_groq import ChatGroq
 
-                llm = ChatGroq(
-                    model=self._model_name,
+                return ChatGroq(
+                    model=self._model_name,  # type: ignore[call-arg]
                     groq_api_key=self._api_key,
                 )
             else:
                 raise ValueError(f"Unsupported LLM provider: {self._provider!r}")
 
-            return llm.with_structured_output(AgentScore)
+        def _build_chain(self) -> Any:
+            """Construct and cache the structured-output LangChain chain.
+
+            Returns:
+                A LangChain Runnable that produces AgentScore instances.
+            """
+            return self._get_llm().with_structured_output(AgentScore)
 
         async def structured_score(
             self,
@@ -257,6 +351,44 @@ try:
                         extra={"error": str(retry_exc)},
                     )
                     raise
+
+        async def generate_narrative(
+            self,
+            system: str,
+            user: str,
+            transcript_segments: list[TranscriptSegmentData],
+        ) -> SupervisorNarrative:
+            """Generate supervisor narrative using structured LangChain output.
+
+            Args:
+                system: System prompt for the supervisor role.
+                user: User prompt with scoring context.
+                transcript_segments: Passed for context (not used in chain directly).
+
+            Returns:
+                A validated SupervisorNarrative.
+            """
+            narrative_chain: Any = self._get_llm().with_structured_output(SupervisorNarrative)
+            messages = [SystemMessage(content=system), HumanMessage(content=user)]
+            try:
+                result: SupervisorNarrative = await narrative_chain.ainvoke(messages)
+                return result
+            except (PydanticValidationError, OutputParserException) as exc:
+                logger.warning(
+                    "LangchainLLMProvider.generate_narrative: validation error, retrying. Error: %s",
+                    exc,
+                )
+                corrective = (
+                    "\n\nIMPORTANT: Your previous response was invalid. "
+                    "Return ONLY a valid JSON object matching the SupervisorNarrative schema. "
+                    "Ensure all segment_ids in key_moments match IDs from the provided segments."
+                )
+                retry_messages = [
+                    SystemMessage(content=system),
+                    HumanMessage(content=user + corrective),
+                ]
+                result = await narrative_chain.ainvoke(retry_messages)
+                return result
 
 except ImportError:
     LangchainLLMProvider = None  # type: ignore[assignment,misc]
