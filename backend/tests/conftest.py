@@ -38,6 +38,14 @@ async def db_engine():
 
 
 @pytest_asyncio.fixture
+async def db(db_engine) -> AsyncSession:
+    """Open session on the test engine for direct DB setup in API tests."""
+    factory = async_sessionmaker(bind=db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with factory() as session:
+        yield session
+
+
+@pytest_asyncio.fixture
 async def client(db_engine):
     """HTTP test client with the DB session overridden to the test engine."""
     factory = async_sessionmaker(bind=db_engine, expire_on_commit=False, class_=AsyncSession)
@@ -52,7 +60,9 @@ async def client(db_engine):
     async with factory() as session:
         await seed_defaults(session)
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test", follow_redirects=True
+    ) as ac:
         yield ac
 
     app.dependency_overrides.pop(get_db, None)

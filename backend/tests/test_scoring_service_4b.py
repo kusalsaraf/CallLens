@@ -96,8 +96,10 @@ async def test_score_call_persists_all_rows(db: AsyncSession, seeded_call: Call)
     await score_call(seeded_call.id, db=db)
 
     scores = (
-        await db.execute(select(CallScore).where(CallScore.call_id == seeded_call.id))
-    ).scalars().all()
+        (await db.execute(select(CallScore).where(CallScore.call_id == seeded_call.id)))
+        .scalars()
+        .all()
+    )
     assert len(scores) > 0, "Expected at least one CallScore row"
 
     analysis = (
@@ -107,8 +109,10 @@ async def test_score_call_persists_all_rows(db: AsyncSession, seeded_call: Call)
     assert 0 <= analysis.overall_score <= 100
 
     runs = (
-        await db.execute(select(CallAgentRun).where(CallAgentRun.call_id == seeded_call.id))
-    ).scalars().all()
+        (await db.execute(select(CallAgentRun).where(CallAgentRun.call_id == seeded_call.id)))
+        .scalars()
+        .all()
+    )
     assert len(runs) >= 2, "Expected at least preprocess + supervisor nodes"
 
     audit = (
@@ -131,22 +135,22 @@ async def test_reprocess_is_idempotent(db: AsyncSession, seeded_call: Call) -> N
     await score_call(seeded_call.id, db=db)
 
     analysis_rows = (
-        await db.execute(select(CallAnalysis).where(CallAnalysis.call_id == seeded_call.id))
-    ).scalars().all()
+        (await db.execute(select(CallAnalysis).where(CallAnalysis.call_id == seeded_call.id)))
+        .scalars()
+        .all()
+    )
 
     assert len(analysis_rows) == 1, "Must have exactly one CallAnalysis after two passes"
 
     score_rows = (
-        await db.execute(select(CallScore).where(CallScore.call_id == seeded_call.id))
-    ).scalars().all()
-
-    dim_count = (
-        await db.execute(select(RubricDimension))
-    ).scalars().all()
-    active_count = sum(1 for d in dim_count if d.kind in ("score", "ratio"))
-    assert len(score_rows) == active_count, (
-        f"Expected {active_count} scores, got {len(score_rows)}"
+        (await db.execute(select(CallScore).where(CallScore.call_id == seeded_call.id)))
+        .scalars()
+        .all()
     )
+
+    dim_count = (await db.execute(select(RubricDimension))).scalars().all()
+    active_count = sum(1 for d in dim_count if d.kind in ("score", "ratio"))
+    assert len(score_rows) == active_count, f"Expected {active_count} scores, got {len(score_rows)}"
 
 
 async def test_reprocess_preserves_manual_coaching_notes(
@@ -166,19 +170,21 @@ async def test_reprocess_preserves_manual_coaching_notes(
     await score_call(seeded_call.id, db=db)
 
     notes = (
-        await db.execute(
-            select(CoachingNote).where(
-                CoachingNote.call_id == seeded_call.id,
-                CoachingNote.source == "manual",
+        (
+            await db.execute(
+                select(CoachingNote).where(
+                    CoachingNote.call_id == seeded_call.id,
+                    CoachingNote.source == "manual",
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(notes) == 1, "Manual coaching note must survive reprocess"
 
 
-async def test_score_call_rollback_on_graph_error(
-    db: AsyncSession, seeded_call: Call
-) -> None:
+async def test_score_call_rollback_on_graph_error(db: AsyncSession, seeded_call: Call) -> None:
     with patch(
         "calllens.services.scoring_service.run_scoring_graph",
         new_callable=AsyncMock,
@@ -190,11 +196,15 @@ async def test_score_call_rollback_on_graph_error(
     assert seeded_call.status == CallStatus.failed
 
     scores = (
-        await db.execute(select(CallScore).where(CallScore.call_id == seeded_call.id))
-    ).scalars().all()
+        (await db.execute(select(CallScore).where(CallScore.call_id == seeded_call.id)))
+        .scalars()
+        .all()
+    )
     assert len(scores) == 0, "No CallScore rows should survive a failed scoring pass"
 
     analyses = (
-        await db.execute(select(CallAnalysis).where(CallAnalysis.call_id == seeded_call.id))
-    ).scalars().all()
+        (await db.execute(select(CallAnalysis).where(CallAnalysis.call_id == seeded_call.id)))
+        .scalars()
+        .all()
+    )
     assert len(analyses) == 0

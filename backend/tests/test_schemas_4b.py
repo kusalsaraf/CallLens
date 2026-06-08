@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from calllens.schemas.calls import CallScoreOut, DimensionInfo, EvidenceOut
+from calllens.schemas.calls import CallScoreOut, DimensionInfo
 
 
 def _make_score(score: int) -> CallScoreOut:
@@ -18,7 +18,7 @@ def _make_score(score: int) -> CallScoreOut:
         confidence=0.8,
         rationale="test",
         is_supported=True,
-        scored_at=datetime.now(tz=timezone.utc),
+        scored_at=datetime.now(tz=UTC),
         evidence=[],
     )
 
@@ -58,7 +58,7 @@ def test_analysis_schema_roundtrip() -> None:
         compliance_passed=True,
         escalate_for_review=False,
         escalation_reason=None,
-        created_at=datetime.now(tz=timezone.utc),
+        created_at=datetime.now(tz=UTC),
     )
     assert out.overall_score == 78
     assert out.key_moments[0].segment_id == seg_id

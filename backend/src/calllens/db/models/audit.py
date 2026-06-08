@@ -23,9 +23,7 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(
         String(64), nullable=False, index=True
     )  # "score", "reprocess", "coaching_note_create", "coaching_note_delete"
-    entity: Mapped[str] = mapped_column(
-        String(64), nullable=False
-    )  # "call", "coaching_note"
+    entity: Mapped[str] = mapped_column(String(64), nullable=False)  # "call", "coaching_note"
     entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

@@ -2,7 +2,6 @@
 
 import os
 
-import pytest
 import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -31,10 +30,7 @@ async def fresh_engine():
 async def test_phase4b_tables_exist(fresh_engine) -> None:  # type: ignore[no-untyped-def]
     async with fresh_engine.connect() as conn:
         result = await conn.execute(
-            text(
-                "SELECT table_name FROM information_schema.tables "
-                "WHERE table_schema = 'public'"
-            )
+            text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
         )
         tables = {row[0] for row in result}
 

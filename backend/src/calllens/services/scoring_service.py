@@ -103,12 +103,16 @@ async def _score_call_inner(call_id: uuid.UUID, db: AsyncSession) -> None:
 
         # 3. Load Segments ordered by sequence.
         segments = (
-            await db.execute(
-                select(TranscriptSegment)
-                .where(TranscriptSegment.transcript_id == transcript.id)
-                .order_by(TranscriptSegment.sequence)
+            (
+                await db.execute(
+                    select(TranscriptSegment)
+                    .where(TranscriptSegment.transcript_id == transcript.id)
+                    .order_by(TranscriptSegment.sequence)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         # 4. Load default Rubric.
         rubric = (
@@ -119,10 +123,14 @@ async def _score_call_inner(call_id: uuid.UUID, db: AsyncSession) -> None:
 
         # 5. Load all Dimensions for the rubric.
         dimensions = (
-            await db.execute(
-                select(RubricDimension).where(RubricDimension.rubric_id == rubric.id)
+            (
+                await db.execute(
+                    select(RubricDimension).where(RubricDimension.rubric_id == rubric.id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         # 6. Build typed inputs for the graph.
         timed_segments: list[TimedTranscriptSegmentData] = [
@@ -328,9 +336,7 @@ async def _score_call_inner(call_id: uuid.UUID, db: AsyncSession) -> None:
         logger.exception("Scoring failed", extra={"call_id": str(call_id)})
         await db.rollback()
         # Reload call after rollback — session state was reset.
-        call = (
-            await db.execute(select(Call).where(Call.id == call_id))
-        ).scalar_one_or_none()
+        call = (await db.execute(select(Call).where(Call.id == call_id))).scalar_one_or_none()
         if call is not None:
             try:
                 await _set_status(db, call, CallStatus.failed, detail=str(exc))

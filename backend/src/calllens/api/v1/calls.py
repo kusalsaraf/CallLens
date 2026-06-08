@@ -12,19 +12,22 @@ from typing import Annotated
 import magic
 from fastapi import APIRouter, Depends, Header, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from calllens.core.config import get_settings
 from calllens.core.deps import get_current_user
 from calllens.core.exceptions import NotFoundError, ValidationError
+from calllens.db.models.agent_run import CallAgentRun
+from calllens.db.models.analysis import CallAnalysis
 from calllens.db.models.call import Call, CallStatus, is_terminal
 from calllens.db.models.scoring import CallScore
 from calllens.db.models.segment import TranscriptSegment
 from calllens.db.models.transcript import Transcript
 from calllens.db.models.user import User
 from calllens.db.session import get_db
+from calllens.schemas.analysis import AgentRunOut, CallAnalysisOut, TraceOut
 from calllens.schemas.calls import (
     CallListOut,
     CallOut,
@@ -501,6 +504,85 @@ async def get_call_scores(
 
 
 # ---------------------------------------------------------------------------
+# GET /{id}/analysis
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{call_id}/analysis", response_model=CallAnalysisOut)
+async def get_call_analysis(
+    call_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> CallAnalysisOut:
+    """Return the aggregated analysis for a scored call.
+
+    Args:
+        call_id: UUID of the target call.
+        db: Database session.
+        current_user: Authenticated user.
+
+    Returns:
+        CallAnalysisOut with overall score, summary, key moments, and metrics.
+
+    Raises:
+        NotFoundError: If the call or its analysis does not exist.
+    """
+    await _get_call_or_404(call_id, db)
+
+    analysis = (
+        await db.execute(select(CallAnalysis).where(CallAnalysis.call_id == call_id))
+    ).scalar_one_or_none()
+    if analysis is None:
+        raise NotFoundError("Analysis not yet available for this call")
+
+    return CallAnalysisOut.model_validate(analysis)
+
+
+# ---------------------------------------------------------------------------
+# GET /{id}/trace
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{call_id}/trace", response_model=TraceOut)
+async def get_call_trace(
+    call_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> TraceOut:
+    """Return the agent run trace for a scored call.
+
+    Args:
+        call_id: UUID of the target call.
+        db: Database session.
+        current_user: Authenticated user.
+
+    Returns:
+        TraceOut listing each LangGraph node execution in order.
+
+    Raises:
+        NotFoundError: If the call does not exist.
+    """
+    await _get_call_or_404(call_id, db)
+
+    runs = (
+        (
+            await db.execute(
+                select(CallAgentRun)
+                .where(CallAgentRun.call_id == call_id)
+                .order_by(CallAgentRun.created_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    return TraceOut(
+        call_id=call_id,
+        runs=[AgentRunOut.model_validate(r) for r in runs],
+    )
+
+
+# ---------------------------------------------------------------------------
 # POST /{id}/reprocess
 # ---------------------------------------------------------------------------
 
@@ -515,9 +597,8 @@ async def reprocess_call_scores(
 ) -> CallOut:
     """Re-run scoring for an already-transcribed call (idempotent).
 
-    Deletes prior CallScore rows for the sentiment_empathy dimension
-    (and their evidence via CASCADE), then runs score_call to produce
-    fresh scores. The call must have status transcribed, scoring, or scored.
+    The scoring service handles idempotent cleanup of prior auto data
+    internally. Manual coaching notes are preserved.
 
     Args:
         call_id: UUID of the call to reprocess.
@@ -537,9 +618,6 @@ async def reprocess_call_scores(
             status_code=409,
             detail="Call cannot be rescored in its current status",
         )
-
-    await db.execute(delete(CallScore).where(CallScore.call_id == call_id))
-    await db.commit()
 
     await score_call(call_id, db=db)
 
