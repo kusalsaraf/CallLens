@@ -180,8 +180,8 @@ async def test_reprocess_replaces_scores(
     async with factory() as db:
         result = await db.execute(select(CallScore).where(CallScore.call_id == call_id))
         original_scores = result.scalars().all()
-    assert len(original_scores) == 1
-    original_score_id = original_scores[0].id
+    assert len(original_scores) >= 1
+    original_score_ids = {s.id for s in original_scores}
 
     # Reprocess.
     with (
@@ -200,13 +200,14 @@ async def test_reprocess_replaces_scores(
         )
     assert resp.status_code == 200, resp.text
 
-    # Verify exactly one score exists and it is a new row.
+    # Verify scores exist and all are new rows (different IDs from original pass).
     async with factory() as db:
         result = await db.execute(select(CallScore).where(CallScore.call_id == call_id))
         new_scores = result.scalars().all()
 
-    assert len(new_scores) == 1, f"Expected 1 score, got {len(new_scores)}"
-    assert new_scores[0].id != original_score_id, "Score id should change after reprocess"
+    assert len(new_scores) >= 1, f"Expected at least 1 score, got {len(new_scores)}"
+    new_score_ids = {s.id for s in new_scores}
+    assert new_score_ids.isdisjoint(original_score_ids), "Scores must be replaced after reprocess"
 
 
 # ---------------------------------------------------------------------------

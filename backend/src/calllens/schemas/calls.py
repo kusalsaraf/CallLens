@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 
 class CallOut(BaseModel):
@@ -113,6 +113,18 @@ class CallScoreOut(BaseModel):
     is_supported: bool
     scored_at: datetime
     evidence: list[EvidenceOut]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def band(self) -> str:
+        """Score band classification: excellent ≥90, good ≥70, fair ≥50, poor <50."""
+        if self.score >= 90:
+            return "excellent"
+        if self.score >= 70:
+            return "good"
+        if self.score >= 50:
+            return "fair"
+        return "poor"
 
 
 class ScoresListOut(BaseModel):
