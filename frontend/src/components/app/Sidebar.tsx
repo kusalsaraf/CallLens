@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { label: "Overview", href: "/app/overview", icon: "⊡" },
   { label: "Calls", href: "/app/calls", icon: "◎" },
+  { label: "Agents", href: "/app/agents", icon: "↗" },
+  { label: "Teams", href: "/app/teams", icon: "⊛" },
   { label: "Upload", href: "/app/upload", icon: "↑" },
-  { label: "Agents", href: "/app/agents", icon: "↗", placeholder: true },
-  { label: "Teams", href: "/app/teams", icon: "⊛", placeholder: true },
   { label: "Rubrics", href: "/app/rubrics", icon: "◻", placeholder: true },
   { label: "Search", href: "/app/search", icon: "⌕", placeholder: true },
   { label: "Settings", href: "/app/settings", icon: "⌇", placeholder: true },
@@ -33,9 +33,13 @@ export function Sidebar() {
               ? pathname === "/app/overview"
               : href === "/app/calls"
                 ? pathname.startsWith("/app/calls")
-                : href === "/app/upload"
-                  ? pathname === "/app/upload"
-                  : pathname === href;
+                : href === "/app/agents"
+                  ? pathname.startsWith("/app/agents")
+                  : href === "/app/teams"
+                    ? pathname.startsWith("/app/teams")
+                    : href === "/app/upload"
+                      ? pathname === "/app/upload"
+                      : pathname === href;
           return (
             <Link
               key={href}
