@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiDeleteCall,
@@ -41,6 +41,8 @@ export default function CallDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [focusedSegmentId, setFocusedSegmentId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const deepLinkSegment = searchParams.get("segment");
 
   const { data: call, isLoading } = useQuery<CallOut>({
     queryKey: ["call", callId],
@@ -89,6 +91,15 @@ export default function CallDetailPage() {
       if (audioUrl) URL.revokeObjectURL(audioUrl);
     };
   }, [audioUrl]);
+
+  // Deep-link: ?segment=<id> → seek audio + flash transcript segment
+  useEffect(() => {
+    if (!deepLinkSegment || !transcript) return;
+    const seg = transcript.segments.find((s) => s.id === deepLinkSegment);
+    if (!seg) return;
+    audioPlayerRef.current?.seekTo(seg.start_ms / 1000);
+    setFocusedSegmentId(seg.id);
+  }, [deepLinkSegment, transcript]);
 
   const handleStepperComplete = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ["call", callId] });
