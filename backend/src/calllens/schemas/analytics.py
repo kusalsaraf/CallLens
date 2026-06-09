@@ -30,6 +30,7 @@ class AnalyticsFilters:
         date_to: Annotated[datetime | None, Query()] = None,
         team_id: Annotated[uuid.UUID | None, Query()] = None,
         agent_id: Annotated[uuid.UUID | None, Query()] = None,
+        topic_id: Annotated[uuid.UUID | None, Query()] = None,
     ) -> None:
         """Initialise the filter set from query params.
 
@@ -38,11 +39,13 @@ class AnalyticsFilters:
             date_to: Include calls uploaded on or before this timestamp.
             team_id: Restrict to agents belonging to this team.
             agent_id: Restrict to a single agent.
+            topic_id: Restrict to calls tagged with this topic.
         """
         self.date_from = date_from
         self.date_to = date_to
         self.team_id = team_id
         self.agent_id = agent_id
+        self.topic_id = topic_id
 
 
 # ── Overview ──────────────────────────────────────────────────────────────────
@@ -201,6 +204,61 @@ class TeamListOut(BaseModel):
 
 
 # ── Team analytics ────────────────────────────────────────────────────────────
+class TopicAnalyticsEntryOut(BaseModel):
+    """Per-topic analytics row."""
+
+    topic_id: uuid.UUID
+    name: str
+    slug: str
+    call_count: int
+    avg_overall_score: float | None
+    band: str | None
+    flagged_rate: float | None
+
+
+class TopicAnalyticsOut(BaseModel):
+    """Topic-level analytics ordered by call_count desc."""
+
+    items: list[TopicAnalyticsEntryOut]
+
+
+# ── Topic CRUD ────────────────────────────────────────────────────────────────
+class TopicOut(BaseModel):
+    """A topic in the taxonomy."""
+
+    id: uuid.UUID
+    name: str
+    slug: str
+    keywords: list[str]
+
+
+class TopicListOut(BaseModel):
+    """List of all topics."""
+
+    items: list[TopicOut]
+
+
+class TopicDetailOut(BaseModel):
+    """A topic with its stats."""
+
+    id: uuid.UUID
+    name: str
+    slug: str
+    keywords: list[str]
+    call_count: int
+    avg_overall_score: float | None
+    band: str | None
+
+
+class CallTopicOut(BaseModel):
+    """A topic attached to a call."""
+
+    topic_id: uuid.UUID
+    name: str
+    slug: str
+    relevance: float
+
+
 class TeamScoreBandOut(BaseModel):
     """Count of scored calls per quality band within a team."""
 

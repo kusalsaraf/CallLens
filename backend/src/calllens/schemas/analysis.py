@@ -16,6 +16,15 @@ class KeyMomentOut(BaseModel):
     label: str
 
 
+class CallTopicBrief(BaseModel):
+    """A topic attached to a call — minimal shape for the analysis response."""
+
+    topic_id: uuid.UUID
+    name: str
+    slug: str
+    relevance: float
+
+
 class CallAnalysisOut(BaseModel):
     """Aggregated call analysis returned by GET /calls/{id}/analysis."""
 
@@ -35,6 +44,7 @@ class CallAnalysisOut(BaseModel):
     compliance_passed: bool
     escalate_for_review: bool
     escalation_reason: str | None
+    topics: list[CallTopicBrief] = []
     created_at: datetime
 
 

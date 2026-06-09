@@ -14,6 +14,7 @@ from calllens.api.v1.coaching import router as coaching_router
 from calllens.api.v1.rubrics import router as rubrics_router
 from calllens.api.v1.search import router as search_router
 from calllens.api.v1.teams import router as teams_router
+from calllens.api.v1.topics import router as topics_router
 from calllens.core.config import get_settings
 from calllens.core.exceptions import register_exception_handlers
 from calllens.core.logging import CorrelationIDMiddleware, configure_logging
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(rubrics_router, prefix="/api/v1")
     app.include_router(search_router, prefix="/api/v1")
     app.include_router(teams_router, prefix="/api/v1")
+    app.include_router(topics_router, prefix="/api/v1")
 
     logger.info("CallLens API started", extra={"env": settings.app_env})
 

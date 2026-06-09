@@ -25,10 +25,11 @@ from calllens.db.models.call import Call, CallStatus, is_terminal
 from calllens.db.models.rubric import Rubric
 from calllens.db.models.scoring import CallScore
 from calllens.db.models.segment import TranscriptSegment
+from calllens.db.models.topic import CallTopic, Topic
 from calllens.db.models.transcript import Transcript
 from calllens.db.models.user import User
 from calllens.db.session import get_db
-from calllens.schemas.analysis import AgentRunOut, CallAnalysisOut, TraceOut
+from calllens.schemas.analysis import AgentRunOut, CallAnalysisOut, CallTopicBrief, TraceOut
 from calllens.schemas.calls import (
     CallListOut,
     CallOut,
@@ -159,6 +160,7 @@ async def list_calls(
     current_user: Annotated[User, Depends(get_current_user)],
     status: str | None = None,
     agent_id: uuid.UUID | None = None,
+    topic_id: uuid.UUID | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> CallListOut:
@@ -186,6 +188,10 @@ async def list_calls(
             raise ValidationError(f"Invalid status: {status!r}") from None
     if agent_id is not None:
         stmt = stmt.where(Call.agent_id == agent_id)
+    if topic_id is not None:
+        stmt = stmt.join(CallTopic, CallTopic.call_id == Call.id).where(
+            CallTopic.topic_id == topic_id
+        )
 
     total_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
     total = total_result.scalar_one()
@@ -549,7 +555,27 @@ async def get_call_analysis(
     if analysis is None:
         raise NotFoundError("Analysis not yet available for this call")
 
-    return CallAnalysisOut.model_validate(analysis)
+    topic_rows = (
+        await db.execute(
+            select(CallTopic, Topic)
+            .join(Topic, Topic.id == CallTopic.topic_id)
+            .where(CallTopic.call_id == call_id)
+            .order_by(CallTopic.relevance.desc())
+        )
+    ).all()
+    topic_briefs = [
+        CallTopicBrief(
+            topic_id=ct.topic_id,
+            name=t.name,
+            slug=t.slug,
+            relevance=ct.relevance,
+        )
+        for ct, t in topic_rows
+    ]
+
+    out = CallAnalysisOut.model_validate(analysis)
+    out.topics = topic_briefs
+    return out
 
 
 # ---------------------------------------------------------------------------

@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     redaction_provider: Literal["regex", "presidio"] = "regex"
     redact_before_scoring: bool = True
 
+    # Topics
+    topic_extractor: Literal["stub", "llm"] = "stub"
+    topic_relevance_threshold: float = 0.1
+
     # Scoring bands
     score_band_good: int = 80
     score_band_fair: int = 60

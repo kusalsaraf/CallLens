@@ -12,12 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from calllens.core.config import get_settings
 from calllens.db.models.call import Call, CallStatus
 from calllens.db.models.segment import TranscriptSegment
+from calllens.db.models.topic import CallTopic, Topic
 from calllens.db.models.transcript import Transcript
 from calllens.db.session import get_session_factory
 from calllens.embeddings.factory import get_embedder
 from calllens.redaction.factory import get_redactor
 from calllens.services.call_events import publish_call_event
 from calllens.storage.factory import get_storage
+from calllens.topics.base import TaxonomyEntry
+from calllens.topics.factory import get_topic_extractor
 from calllens.transcription.base import MergedSegment
 from calllens.transcription.factory import get_diarizer, get_transcriber
 from calllens.transcription.merge import merge
@@ -97,6 +100,83 @@ async def _redact_segments(db: AsyncSession, transcript: Transcript) -> None:
         sum(entity_counter.values()),
         extra={"transcript_id": str(transcript.id)},
     )
+
+
+async def _extract_topics(db: AsyncSession, call: Call) -> None:
+    """Extract topics from the call's transcript and persist CallTopic rows.
+
+    Uses redacted_text when REDACT_BEFORE_SCORING is on (consistent with
+    the text the scoring graph sees). Replaces prior CallTopic rows for
+    this call on reprocess.
+
+    Resilient: extraction failure is logged but never fails the pipeline.
+
+    Args:
+        db: Active database session.
+        call: The Call being processed.
+    """
+    try:
+        settings = get_settings()
+
+        topics = list((await db.execute(select(Topic))).scalars().all())
+        if not topics:
+            return
+
+        t_result = await db.execute(select(Transcript).where(Transcript.call_id == call.id))
+        transcript = t_result.scalar_one_or_none()
+        if transcript is None:
+            return
+
+        seg_result = await db.execute(
+            select(TranscriptSegment)
+            .where(TranscriptSegment.transcript_id == transcript.id)
+            .order_by(TranscriptSegment.sequence)
+        )
+        segments = list(seg_result.scalars().all())
+        if not segments:
+            return
+
+        use_redacted = settings.redact_before_scoring
+        full_text = " ".join(
+            (seg.redacted_text or seg.text) if use_redacted else seg.text for seg in segments
+        )
+
+        taxonomy: list[TaxonomyEntry] = [
+            TaxonomyEntry(slug=t.slug, name=t.name, keywords=t.keywords) for t in topics
+        ]
+        slug_to_id = {t.slug: t.id for t in topics}
+
+        extractor = get_topic_extractor()
+        matches = await extractor.extract(full_text, taxonomy)
+
+        # Replace prior topics for this call (idempotent on reprocess)
+        from sqlalchemy import delete as sa_delete
+
+        await db.execute(sa_delete(CallTopic).where(CallTopic.call_id == call.id))
+
+        for m in matches:
+            topic_id = slug_to_id.get(m["topic_slug"])
+            if topic_id is None:
+                continue
+            db.add(
+                CallTopic(
+                    call_id=call.id,
+                    topic_id=topic_id,
+                    relevance=m["relevance"],
+                )
+            )
+
+        await db.flush()
+        logger.info(
+            "Extracted %d topics for call",
+            len(matches),
+            extra={"call_id": str(call.id)},
+        )
+    except Exception:
+        logger.exception(
+            "Topic extraction failed — skipping",
+            extra={"call_id": str(call.id)},
+        )
 
 
 async def _embed_segments(db: AsyncSession, transcript_id: uuid.UUID) -> None:
@@ -214,6 +294,8 @@ async def run_call_pipeline(call_id: uuid.UUID) -> None:
             from calllens.services.scoring_service import score_call
 
             await score_call(call.id, db=db)
+
+            await _extract_topics(db, call)
 
             logger.info("Pipeline complete", extra={"call_id": str(call_id)})
 

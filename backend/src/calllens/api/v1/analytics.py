@@ -15,6 +15,7 @@ from calllens.db.models.agent import Agent
 from calllens.db.models.analysis import CallAnalysis
 from calllens.db.models.call import Call, CallStatus
 from calllens.db.models.team import Team
+from calllens.db.models.topic import CallTopic, Topic
 from calllens.db.models.user import User
 from calllens.db.session import get_db
 from calllens.schemas.analytics import (
@@ -31,6 +32,8 @@ from calllens.schemas.analytics import (
     QualityTrendsOut,
     ScoreBucketOut,
     ScoreDistributionOut,
+    TopicAnalyticsEntryOut,
+    TopicAnalyticsOut,
 )
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -74,6 +77,10 @@ def _apply_filters(
         if not agent_already_joined:
             stmt = stmt.join(Agent, Agent.id == Call.agent_id)
         stmt = stmt.where(Agent.team_id == filters.team_id)
+    if filters.topic_id:
+        stmt = stmt.join(CallTopic, CallTopic.call_id == Call.id).where(
+            CallTopic.topic_id == filters.topic_id
+        )
     return stmt
 
 
@@ -391,6 +398,10 @@ async def get_leaderboard(
         stmt = stmt.where(Agent.id == filters.agent_id)
     if filters.team_id:
         stmt = stmt.where(Agent.team_id == filters.team_id)
+    if filters.topic_id:
+        stmt = stmt.join(CallTopic, CallTopic.call_id == Call.id).where(
+            CallTopic.topic_id == filters.topic_id
+        )
 
     rows = (await db.execute(stmt)).all()
     return LeaderboardOut(
@@ -411,3 +422,69 @@ async def get_leaderboard(
             for row in rows
         ]
     )
+
+
+@router.get("/topics", response_model=TopicAnalyticsOut)
+async def get_topic_analytics(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    filters: Annotated[AnalyticsFilters, Depends(AnalyticsFilters)],
+) -> TopicAnalyticsOut:
+    """Return per-topic call count, avg score, and flagged rate.
+
+    Args:
+        db: Database session.
+        current_user: Authenticated user.
+        filters: Optional date / team / agent / topic filters.
+
+    Returns:
+        TopicAnalyticsOut ordered by call_count desc.
+    """
+    stmt = (
+        select(
+            Topic.id,
+            Topic.name,
+            Topic.slug,
+            func.count(Call.id.distinct()).label("call_count"),
+            func.avg(CallAnalysis.overall_score).label("avg_score"),
+            func.count(CallAnalysis.id.distinct()).filter(_at_risk_clause).label("flagged_count"),
+            func.count(CallAnalysis.id.distinct()).label("scored_count"),
+        )
+        .select_from(Topic)
+        .join(CallTopic, CallTopic.topic_id == Topic.id)
+        .join(Call, Call.id == CallTopic.call_id)
+        .outerjoin(CallAnalysis, CallAnalysis.call_id == Call.id)
+        .group_by(Topic.id, Topic.name, Topic.slug)
+        .order_by(func.count(Call.id.distinct()).desc())
+    )
+
+    # Apply date/agent/team filters on the Call table
+    if filters.date_from:
+        stmt = stmt.where(Call.created_at >= filters.date_from)
+    if filters.date_to:
+        stmt = stmt.where(Call.created_at <= filters.date_to)
+    if filters.agent_id:
+        stmt = stmt.where(Call.agent_id == filters.agent_id)
+    if filters.team_id:
+        stmt = stmt.join(Agent, Agent.id == Call.agent_id).where(Agent.team_id == filters.team_id)
+
+    rows = (await db.execute(stmt)).all()
+
+    items: list[TopicAnalyticsEntryOut] = []
+    for row in rows:
+        avg = round(float(row.avg_score), 1) if row.avg_score is not None else None
+        scored = row.scored_count or 0
+        flagged_rate = round(row.flagged_count / scored, 4) if scored > 0 else None
+        items.append(
+            TopicAnalyticsEntryOut(
+                topic_id=row.id,
+                name=row.name,
+                slug=row.slug,
+                call_count=row.call_count,
+                avg_overall_score=avg,
+                band=band_from_score(int(avg)) if avg is not None else None,
+                flagged_rate=flagged_rate,
+            )
+        )
+
+    return TopicAnalyticsOut(items=items)
