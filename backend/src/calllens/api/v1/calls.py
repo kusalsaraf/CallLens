@@ -268,6 +268,8 @@ async def get_transcript(
         id=transcript.id,
         call_id=transcript.call_id,
         language=transcript.language,
+        redaction_provider=transcript.redaction_provider,
+        entities_redacted=transcript.entities_redacted,
         segments=[
             SegmentOut(
                 id=seg.id,
@@ -275,6 +277,7 @@ async def get_transcript(
                 start_ms=seg.start_ms,
                 end_ms=seg.end_ms,
                 text=seg.text,
+                redacted_text=seg.redacted_text,
                 speaker=seg.speaker,
             )
             for seg in segments

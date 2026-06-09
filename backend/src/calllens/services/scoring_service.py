@@ -159,11 +159,17 @@ async def _score_call_inner(
         )
 
         # 6. Build typed inputs for the graph.
+        # When REDACT_BEFORE_SCORING is on, feed redacted_text to the graph
+        # so no raw PII reaches the LLM. Evidence is validated against the
+        # same text the agent received.
+        settings = get_settings()
+        use_redacted = settings.redact_before_scoring
+
         timed_segments: list[TimedTranscriptSegmentData] = [
             TimedTranscriptSegmentData(
                 id=seg.id,
                 sequence=seg.sequence,
-                text=seg.text,
+                text=(seg.redacted_text or seg.text) if use_redacted else seg.text,
                 speaker=seg.speaker,
                 start_ms=seg.start_ms,
                 end_ms=seg.end_ms,

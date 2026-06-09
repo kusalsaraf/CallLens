@@ -54,6 +54,10 @@ agents = [
 embeddings = [
     "sentence-transformers>=2.7.0",
 ]
+redaction = [
+    "presidio-analyzer>=2.2.0",
+    "spacy>=3.7.0",
+]
 
 [project.scripts]
 calllens-seed-rubric = "calllens.seed.rubric:_main_sync"
@@ -78,6 +82,10 @@ agents = [
 ]
 embeddings = [
     "sentence-transformers>=2.7.0",
+]
+redaction = [
+    "presidio-analyzer>=2.2.0",
+    "spacy>=3.7.0",
 ]
 
 [tool.ruff]
@@ -133,10 +141,6 @@ module = ["pyannote.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["torchaudio.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 module = ["groq.*"]
 ignore_missing_imports = true
 
@@ -170,6 +174,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["numpy.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["presidio_analyzer.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

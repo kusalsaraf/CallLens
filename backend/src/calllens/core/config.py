@@ -74,6 +74,11 @@ class Settings(BaseSettings):
     embedding_dim: int = 384
     embedding_model_name: str = "BAAI/bge-small-en-v1.5"
 
+    # Redaction
+    redaction_enabled: bool = True
+    redaction_provider: Literal["regex", "presidio"] = "regex"
+    redact_before_scoring: bool = True
+
     # Scoring bands
     score_band_good: int = 80
     score_band_fair: int = 60

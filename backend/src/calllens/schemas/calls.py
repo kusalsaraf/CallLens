@@ -57,6 +57,7 @@ class SegmentOut(BaseModel):
     start_ms: int
     end_ms: int
     text: str
+    redacted_text: str | None = None
     speaker: str
 
 
@@ -68,6 +69,8 @@ class TranscriptOut(BaseModel):
     id: uuid.UUID
     call_id: uuid.UUID
     language: str | None
+    redaction_provider: str | None = None
+    entities_redacted: dict[str, int] | None = None
     segments: list[SegmentOut]
     created_at: datetime
 

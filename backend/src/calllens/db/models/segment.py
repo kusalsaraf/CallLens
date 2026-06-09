@@ -29,6 +29,7 @@ class TranscriptSegment(Base):
     start_ms: Mapped[int] = mapped_column(Integer)
     end_ms: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
+    redacted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     speaker: Mapped[str] = mapped_column(String(64))
     embedding: Mapped[Any | None] = mapped_column(
         Vector(get_settings().embedding_dim), nullable=True
