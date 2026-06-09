@@ -193,18 +193,20 @@ def dispatch_specialists(state: GraphState) -> list[Any]:
 
     sends: list[Any] = []
     for dim in state["dimensions"]:
-        if dim["kind"] in ("score", "ratio"):
-            sends.append(
-                Send(
-                    "run_specialist",
-                    SpecialistInput(
-                        segments=state["segments"],
-                        metrics=metrics,
-                        dimension=dim,
-                        dimension_scores={},
-                    ),
-                )
+        # "bool" (outcome) is excluded — supervisor handles it directly
+        if dim["kind"] == "bool":
+            continue
+        sends.append(
+            Send(
+                "run_specialist",
+                SpecialistInput(
+                    segments=state["segments"],
+                    metrics=metrics,
+                    dimension=dim,
+                    dimension_scores={},
+                ),
             )
+        )
 
     if not sends:
         logger.warning("dispatch_specialists: no active dimensions; routing directly to supervisor")
@@ -241,7 +243,7 @@ def _build_graph() -> Any:
     builder.add_conditional_edges(
         "preprocess",
         dispatch_specialists,
-        ["run_specialist"],
+        ["run_specialist", "supervisor"],
     )
     builder.add_edge("run_specialist", "supervisor")
     builder.add_edge("supervisor", END)

@@ -313,8 +313,67 @@ async def score_objection_handling(
 
 
 # ---------------------------------------------------------------------------
+# Generic criteria scorer (for "custom" dimensions)
+# ---------------------------------------------------------------------------
+
+
+async def score_custom(
+    segments: list[TranscriptSegmentData],
+    dimension: FullRubricDimensionData,
+    provider: LLMProvider | None = None,
+) -> AgentScore:
+    """Score any custom dimension using its name, guidance, and config.
+
+    The dimension's ``config.guidance`` provides the scoring criteria that
+    the LLM (or stub) uses to evaluate the call.
+
+    Args:
+        segments: All transcript segments.
+        dimension: The custom rubric dimension (config.guidance expected).
+        provider: LLM provider; defaults to get_llm_provider().
+
+    Returns:
+        A validated AgentScore with real-segment evidence.
+    """
+    if provider is None:
+        provider = get_llm_provider()
+
+    segments_by_id = {seg["id"]: seg for seg in segments}
+
+    config = dimension.get("config") or {}
+    guidance = config.get("guidance", "")
+    if not isinstance(guidance, str) or not guidance.strip():
+        guidance = f"Evaluate the call on: {dimension['name']}"
+
+    system = (
+        "You are a call quality analyst scoring a customer service call on a custom criterion.\n"
+        f"Score the agent on '{dimension['name']}' on a scale of 0-100.\n"
+        f"Scoring guidance:\n{guidance}\n"
+        "Cite evidence from the transcript using exact verbatim quotes and segment IDs."
+    )
+    lines = [
+        f"Dimension: {dimension['name']} (weight: {dimension['weight']})",
+        "Transcript:",
+    ]
+    for seg in segments:
+        lines.append(f"[{seg['id']}] seq={seg['sequence']} speaker={seg['speaker']}: {seg['text']}")
+    user = "\n".join(lines)
+
+    raw = await provider.structured_score(system, user, segments)
+    return validate_evidence(raw, segments_by_id)
+
+
+# ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
+
+# Map well-known dimension kinds to their dedicated key->scorer
+_KEY_SCORERS: dict[str, Any] = {
+    "sentiment_empathy": score_sentiment_empathy,
+    "script_adherence": score_script_adherence,
+    "compliance": score_compliance,
+    "objection_handling": score_objection_handling,
+}
 
 _UNSCORED_RESULT = AgentScore(
     score=0,
@@ -334,10 +393,12 @@ async def run_specialist(
     """Dispatch to the correct specialist agent based on dimension kind and key.
 
     Handles:
-    - kind="ratio" (talk_listen): deterministic, no LLM
-    - kind="score" + known keys: LLM-scored specialist
-    - Unknown kind or key: returns unscored result
-    - Provider errors: returns low-confidence unscored result, never crashes
+    - kind="ratio" or key="talk_listen": deterministic, no LLM
+    - kind in (sentiment_empathy, script_adherence, compliance, objection_handling):
+      LLM-scored specialist by key
+    - kind="custom": generic criteria scorer
+    - kind="outcome": deterministic placeholder (supervisor handles)
+    - Unknown kind: returns low-confidence unscored result, never crashes
 
     Args:
         dimension: The rubric dimension to score.
@@ -351,21 +412,33 @@ async def run_specialist(
     key = dimension["key"]
     kind = dimension["kind"]
 
-    if kind == "ratio":
+    # Deterministic: talk/listen ratio
+    if kind == "ratio" or kind == "talk_listen":
         return score_talk_listen(dimension, metrics)
 
     base = _base_segments(segments)
 
     try:
-        if kind == "score":
-            if key == "sentiment_empathy":
-                return await score_sentiment_empathy(base, dimension, provider)
-            if key == "script_adherence":
-                return await score_script_adherence(base, dimension, provider)
-            if key == "compliance":
-                return await score_compliance(base, dimension, provider)
-            if key == "objection_handling":
-                return await score_objection_handling(base, dimension, provider)
+        # Well-known LLM specialists — dispatched by key for backward compat,
+        # and also by kind for new rubric dimensions that use a known kind
+        scorer = _KEY_SCORERS.get(key) or _KEY_SCORERS.get(kind)
+        if scorer is not None:
+            result: AgentScore = await scorer(base, dimension, provider)
+            return result
+
+        # Generic custom dimension
+        if kind == "custom":
+            return await score_custom(base, dimension, provider)
+
+        # Outcome is not scored by a specialist — supervisor handles it
+        if kind == "outcome":
+            return AgentScore(
+                score=0,
+                confidence=0.0,
+                rationale="Outcome dimension is handled by the supervisor, not a specialist.",
+                evidence=[],
+                is_supported=False,
+            )
 
         logger.warning(
             "run_specialist: unsupported dimension kind=%r key=%r — returning unscored",

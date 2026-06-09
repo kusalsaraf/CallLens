@@ -11,6 +11,7 @@ from calllens.api.v1 import auth, calls, health
 from calllens.api.v1.agents import router as agents_router
 from calllens.api.v1.analytics import router as analytics_router
 from calllens.api.v1.coaching import router as coaching_router
+from calllens.api.v1.rubrics import router as rubrics_router
 from calllens.api.v1.search import router as search_router
 from calllens.api.v1.teams import router as teams_router
 from calllens.core.config import get_settings
@@ -68,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(agents_router, prefix="/api/v1")
     app.include_router(coaching_router, prefix="/api/v1")
     app.include_router(analytics_router, prefix="/api/v1")
+    app.include_router(rubrics_router, prefix="/api/v1")
     app.include_router(search_router, prefix="/api/v1")
     app.include_router(teams_router, prefix="/api/v1")
 

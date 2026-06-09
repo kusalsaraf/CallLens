@@ -90,7 +90,7 @@ async def seed_default_rubric(db: AsyncSession) -> Rubric:
         )
         return rubric
 
-    rubric = Rubric(name=_DEFAULT_RUBRIC_NAME, is_default=True)
+    rubric = Rubric(name=_DEFAULT_RUBRIC_NAME, is_default=True, is_active=True)
     db.add(rubric)
     await db.flush()
 

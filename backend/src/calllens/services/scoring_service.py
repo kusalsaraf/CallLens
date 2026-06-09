@@ -55,7 +55,12 @@ async def _set_status(
         )
 
 
-async def score_call(call_id: uuid.UUID, db: AsyncSession | None = None) -> None:
+async def score_call(
+    call_id: uuid.UUID,
+    db: AsyncSession | None = None,
+    *,
+    rebind_rubric: bool = False,
+) -> None:
     """Run the LangGraph scoring graph and persist all output for a call.
 
     Opens its own session if none is provided. On error, rolls back all
@@ -64,6 +69,8 @@ async def score_call(call_id: uuid.UUID, db: AsyncSession | None = None) -> None
     Args:
         call_id: UUID of the Call to score.
         db: Optional open database session; if None, opens a new session.
+        rebind_rubric: If True, rebind the call to the currently active rubric
+            before scoring (used by reprocess to pick up a new rubric).
     """
     _owns_session = db is None
     if _owns_session:
@@ -73,18 +80,24 @@ async def score_call(call_id: uuid.UUID, db: AsyncSession | None = None) -> None
 
     assert db is not None
     try:
-        await _score_call_inner(call_id, db)
+        await _score_call_inner(call_id, db, rebind_rubric=rebind_rubric)
     finally:
         if _owns_session:
             await _ctx.__aexit__(None, None, None)
 
 
-async def _score_call_inner(call_id: uuid.UUID, db: AsyncSession) -> None:
+async def _score_call_inner(
+    call_id: uuid.UUID,
+    db: AsyncSession,
+    *,
+    rebind_rubric: bool = False,
+) -> None:
     """Inner implementation: loads data, runs graph, persists in one transaction.
 
     Args:
         call_id: UUID of the Call to score.
         db: Active database session.
+        rebind_rubric: If True, rebind to the currently active rubric first.
     """
     # 1. Load Call — return silently if missing (Celery retry guard).
     call = (await db.execute(select(Call).where(Call.id == call_id))).scalar_one_or_none()
@@ -114,12 +127,25 @@ async def _score_call_inner(call_id: uuid.UUID, db: AsyncSession) -> None:
             .all()
         )
 
-        # 4. Load default Rubric.
-        rubric = (
-            await db.execute(select(Rubric).where(Rubric.is_default.is_(True)))
-        ).scalar_one_or_none()
+        # 4. Load rubric: use call's bound rubric, or rebind to active, or fallback to default.
+        if rebind_rubric or call.rubric_id is None:
+            rubric = (
+                await db.execute(select(Rubric).where(Rubric.is_active.is_(True)))
+            ).scalar_one_or_none()
+            if rubric is None:
+                rubric = (
+                    await db.execute(select(Rubric).where(Rubric.is_default.is_(True)))
+                ).scalar_one_or_none()
+            if rubric is not None:
+                call.rubric_id = rubric.id
+                await db.flush()
+        else:
+            rubric = (
+                await db.execute(select(Rubric).where(Rubric.id == call.rubric_id))
+            ).scalar_one_or_none()
+
         if rubric is None:
-            raise ValueError("No default rubric found")
+            raise ValueError("No rubric found for scoring")
 
         # 5. Load all Dimensions for the rubric.
         dimensions = (

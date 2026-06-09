@@ -14,6 +14,7 @@ from calllens.db.base import Base
 
 if TYPE_CHECKING:
     from calllens.db.models.agent import Agent
+    from calllens.db.models.rubric import Rubric
     from calllens.db.models.scoring import CallScore
     from calllens.db.models.transcript import Transcript
 
@@ -62,6 +63,9 @@ class Call(Base):
     agent_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL"), nullable=True
     )
+    rubric_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("rubrics.id", ondelete="SET NULL"), nullable=True
+    )
     status_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -71,6 +75,7 @@ class Call(Base):
     )
 
     agent: Mapped[Agent | None] = relationship("Agent", back_populates="calls")
+    rubric: Mapped[Rubric | None] = relationship("Rubric")
     transcript: Mapped[Transcript | None] = relationship(
         "Transcript", back_populates="call", uselist=False
     )

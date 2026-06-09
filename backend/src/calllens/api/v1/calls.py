@@ -22,6 +22,7 @@ from calllens.core.exceptions import NotFoundError, ValidationError
 from calllens.db.models.agent_run import CallAgentRun
 from calllens.db.models.analysis import CallAnalysis
 from calllens.db.models.call import Call, CallStatus, is_terminal
+from calllens.db.models.rubric import Rubric
 from calllens.db.models.scoring import CallScore
 from calllens.db.models.segment import TranscriptSegment
 from calllens.db.models.transcript import Transcript
@@ -120,12 +121,22 @@ async def upload_call(
 
     agent = await get_default_agent(db)
 
+    # Bind to the currently active rubric (snapshot); fall back to default seed
+    active_rubric = (
+        await db.execute(select(Rubric).where(Rubric.is_active.is_(True)))
+    ).scalar_one_or_none()
+    if active_rubric is None:
+        active_rubric = (
+            await db.execute(select(Rubric).where(Rubric.is_default.is_(True)))
+        ).scalar_one_or_none()
+
     call = Call(
         id=call_id,
         status=CallStatus.uploaded,
         storage_key=key,
         original_filename=file.filename,
         agent_id=agent.id,
+        rubric_id=active_rubric.id if active_rubric else None,
     )
     db.add(call)
     await db.commit()
@@ -594,6 +605,7 @@ async def reprocess_call_scores(
     call_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
+    rebind_rubric: bool = False,
 ) -> CallOut:
     """Re-run scoring for an already-transcribed call (idempotent).
 
@@ -604,6 +616,7 @@ async def reprocess_call_scores(
         call_id: UUID of the call to reprocess.
         db: Database session.
         current_user: Authenticated user.
+        rebind_rubric: If True, rebind to the currently active rubric before scoring.
 
     Returns:
         Updated CallOut reflecting the new scoring status.
@@ -619,7 +632,7 @@ async def reprocess_call_scores(
             detail="Call cannot be rescored in its current status",
         )
 
-    await score_call(call_id, db=db)
+    await score_call(call_id, db=db, rebind_rubric=rebind_rubric)
 
     await db.refresh(call)
     return CallOut.from_orm_call(call)
