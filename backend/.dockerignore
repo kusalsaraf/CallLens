@@ -16,5 +16,4 @@ build/
 tests/
 docs/
 *.md
-uv.lock
 alembic/versions/__pycache__/

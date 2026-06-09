@@ -1,5 +1,64 @@
 # CallLens — Deployment Guide
 
+## Quick Start (Docker Compose)
+
+Run the entire stack locally with one command — no API keys needed:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+- **App:** http://localhost:3000
+- **API docs:** http://localhost:8000/docs
+- **Dashboard:** pre-seeded with 16 demo calls (`SEED_DEMO_ON_START=true`)
+
+### Infra-only (for native dev with `uv` + `npm`)
+
+Run only Postgres and Redis in Docker, then start the backend and frontend natively:
+
+```bash
+docker compose up postgres redis
+```
+
+Then in separate terminals:
+
+```bash
+# Backend
+cd backend && cp .env.example .env   # edit DATABASE_URL to localhost
+uv sync --group agents
+uv run alembic upgrade head
+uv run uvicorn calllens.main:app --reload
+
+# Frontend
+cd frontend && npm install && npm run dev
+```
+
+### Reset everything (including data)
+
+```bash
+docker compose down -v
+```
+
+This removes all containers and named volumes (`pgdata`, `storage`).
+
+### How the services fit together
+
+| Service | Image | Purpose |
+|---------|-------|---------|
+| `postgres` | pgvector/pgvector:pg16 | Database with vector extension |
+| `redis` | redis:7-alpine | Celery broker + result backend |
+| `migrate` | backend Dockerfile | Runs `alembic upgrade head` once, then exits |
+| `api` | backend Dockerfile | FastAPI server (uvicorn) |
+| `worker` | backend Dockerfile | Celery background worker |
+| `frontend` | frontend Dockerfile | Next.js standalone server |
+
+The `api` and `worker` services **share a Docker volume** (`storage`) mounted
+at `/data/storage`. This is critical — the worker must read audio files that
+the API wrote during upload.
+
+---
+
 ## Architecture
 
 ```
@@ -22,6 +81,7 @@ requests to `BACKEND_URL`. This keeps the httpOnly refresh cookie first-party
 
 | Mode | Command | Use case |
 |------|---------|----------|
+| **Docker Compose** | `docker compose up --build` | Full stack locally |
 | **Combined** | `honcho start` | Free tier — runs API + Celery worker in one process |
 | **API only** | `uvicorn calllens.main:app ...` | Paid tier — dedicated web service |
 | **Worker only** | `celery -A calllens.tasks.celery_app:celery_app worker ...` | Paid tier — dedicated background worker |
@@ -79,5 +139,6 @@ and switch the web service back to the default `uvicorn` command.
 
 ## Environment Variables
 
-See `backend/.env.example` for the full list with descriptions.
-See `frontend/.env.production.example` for frontend variables.
+- **Docker Compose:** see `.env.example` at the repo root
+- **Backend (native):** see `backend/.env.example`
+- **Frontend (Vercel):** see `frontend/.env.production.example`

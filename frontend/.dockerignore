@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+.env
+.env.*
+!.env.production.example
+!.env.local.example
+*.md
+.git/
+.github/

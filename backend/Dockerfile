@@ -9,11 +9,15 @@ COPY src/ src/
 COPY alembic/ alembic/
 COPY alembic.ini .
 
-# Install base deps only (no heavy optional groups like transcription-local, agents, etc.)
 RUN uv sync --no-dev --frozen
 
 # ── Stage 2: runtime ────────────────────────────────────────────────
 FROM python:3.12-slim AS runtime
+
+# libmagic1: required by python-magic for upload MIME sniffing
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libmagic1 && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --gid 1001 calllens && \
     useradd --uid 1001 --gid calllens --shell /bin/false calllens
