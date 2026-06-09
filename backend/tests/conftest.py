@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import calllens.db.models  # noqa: F401 — registers ORM models on Base.metadata
+from calllens.core.middleware import clear_rate_limit_store
 from calllens.db.base import Base
 from calllens.db.models.agent import Agent
 from calllens.db.models.analysis import CallAnalysis
@@ -80,6 +81,7 @@ async def client(db_engine):
             yield session
 
     app.dependency_overrides[get_db] = _override_get_db
+    clear_rate_limit_store()
 
     # Seed default team/agent into the test DB so uploads can reference an agent
     async with factory() as session:

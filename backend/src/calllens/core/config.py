@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     """Central application settings loaded from environment variables.
 
     All secrets must be supplied via environment; no defaults for sensitive values.
+    In production, required secrets are validated at startup — the app refuses
+    to start with insecure defaults.
     """
 
     model_config = SettingsConfigDict(
@@ -27,6 +29,7 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "postgresql+asyncpg://calllens:calllens@localhost:5432/calllens"
+    db_use_pgbouncer: bool = False
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -95,6 +98,15 @@ class Settings(BaseSettings):
     score_band_good: int = 80
     score_band_fair: int = 60
 
+    # API docs gating
+    enable_api_docs: bool | None = None
+
+    # Demo seeding
+    seed_demo_on_start: bool = False
+
+    # Auth rate limiting (in-memory, per single instance)
+    auth_rate_limit_per_minute: int = 20
+
     @field_validator("cors_origins", "allowed_audio_mimes", mode="before")
     @classmethod
     def parse_csv_list(cls, v: object) -> object:
@@ -102,6 +114,31 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [item.strip() for item in v.split(",") if item.strip()]
         return v
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> "Settings":
+        """Reject insecure defaults when running in production."""
+        if self.app_env != "production":
+            return self
+
+        insecure_jwt = "CHANGE-ME-IN-PRODUCTION-use-a-random-32-plus-byte-secret"
+        insecure_db = "postgresql+asyncpg://calllens:calllens@localhost:5432/calllens"
+
+        errors: list[str] = []
+        if self.jwt_secret == insecure_jwt:
+            errors.append("JWT_SECRET must be set in production (not the default)")
+        if self.database_url == insecure_db:
+            errors.append("DATABASE_URL must be set in production (not the default)")
+        if errors:
+            raise ValueError("Production configuration errors:\n  - " + "\n  - ".join(errors))
+        return self
+
+    @property
+    def docs_enabled(self) -> bool:
+        """Whether OpenAPI docs endpoints should be exposed."""
+        if self.enable_api_docs is not None:
+            return self.enable_api_docs
+        return self.app_env != "production"
 
 
 @lru_cache

@@ -18,6 +18,7 @@ from calllens.api.v1.topics import router as topics_router
 from calllens.core.config import get_settings
 from calllens.core.exceptions import register_exception_handlers
 from calllens.core.logging import CorrelationIDMiddleware, configure_logging
+from calllens.core.middleware import AuthRateLimitMiddleware, SecurityHeadersMiddleware
 from calllens.db.session import get_session_factory
 from calllens.services.seed import seed_defaults
 
@@ -30,6 +31,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     factory = get_session_factory()
     async with factory() as db:
         await seed_defaults(db)
+
+    settings = get_settings()
+    if settings.seed_demo_on_start:
+        try:
+            from calllens.seed.demo import seed_demo
+
+            summary = await seed_demo(count=16, reset=False, audio=False)
+            if summary.get("skipped"):
+                logger.info("Demo data already present — skipping auto-seed")
+            else:
+                logger.info(
+                    "Auto-seeded demo data on startup",
+                    extra={"created": summary.get("created", 0)},
+                )
+        except Exception:
+            logger.exception("Auto-seed of demo data failed — continuing startup")
+
     yield
 
 
@@ -47,12 +65,14 @@ def create_app() -> FastAPI:
         title="CallLens API",
         version="0.1.0",
         lifespan=lifespan,
-        docs_url="/docs" if settings.app_env != "production" else None,
-        redoc_url="/redoc" if settings.app_env != "production" else None,
+        docs_url="/docs" if settings.docs_enabled else None,
+        redoc_url="/redoc" if settings.docs_enabled else None,
     )
 
-    # Middleware (registered in reverse order of execution)
+    # Middleware (registered in reverse order of execution — last added runs first)
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(CorrelationIDMiddleware)
+    app.add_middleware(AuthRateLimitMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

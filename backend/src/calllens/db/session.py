@@ -18,16 +18,28 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 def get_engine() -> AsyncEngine:
     """Return (and lazily create) the async SQLAlchemy engine.
 
+    When ``DB_USE_PGBOUNCER=true``, disables asyncpg's prepared-statement
+    cache (``statement_cache_size=0``) and server-side prepared statements
+    so the connection works through transaction-mode poolers like Supabase
+    (port 6543) or standalone PgBouncer.
+
     Returns:
         The shared ``AsyncEngine`` instance.
     """
     global _engine
     if _engine is None:
         settings = get_settings()
+
+        connect_args: dict[str, int] = {}
+        if settings.db_use_pgbouncer:
+            connect_args["statement_cache_size"] = 0
+            connect_args["prepared_statement_cache_size"] = 0
+
         _engine = create_async_engine(
             settings.database_url,
             echo=settings.app_debug,
             pool_pre_ping=True,
+            connect_args=connect_args,
         )
     return _engine
 
