@@ -86,8 +86,16 @@ class TestStubKeywordExtractor:
                 slug="barely",
                 name="Barely",
                 keywords=[
-                    "xylophone", "yacht", "zebra", "asteroid", "brontosaurus",
-                    "chrysanthemum", "dinosaur", "elephant", "flamingo", "giraffe",
+                    "xylophone",
+                    "yacht",
+                    "zebra",
+                    "asteroid",
+                    "brontosaurus",
+                    "chrysanthemum",
+                    "dinosaur",
+                    "elephant",
+                    "flamingo",
+                    "giraffe",
                 ],
             ),
         ]

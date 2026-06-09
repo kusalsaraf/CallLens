@@ -7,7 +7,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, String, Text, Uuid, func
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from calllens.db.base import Base
@@ -66,6 +66,7 @@ class Call(Base):
     rubric_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("rubrics.id", ondelete="SET NULL"), nullable=True
     )
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     status_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
