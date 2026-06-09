@@ -1,4 +1,4 @@
-"""Call processing pipeline: transcription, diarization, and persistence."""
+"""Call processing pipeline: transcription, diarization, embedding, and persistence."""
 
 import logging
 import tempfile
@@ -12,6 +12,7 @@ from calllens.db.models.call import Call, CallStatus
 from calllens.db.models.segment import TranscriptSegment
 from calllens.db.models.transcript import Transcript
 from calllens.db.session import get_session_factory
+from calllens.embeddings.factory import get_embedder
 from calllens.services.call_events import publish_call_event
 from calllens.storage.factory import get_storage
 from calllens.transcription.base import MergedSegment
@@ -36,6 +37,43 @@ async def _set_status(
     except Exception:
         logger.warning(
             "Failed to publish call event", extra={"call_id": str(call.id), "status": status.value}
+        )
+
+
+async def _embed_segments(db: AsyncSession, transcript_id: uuid.UUID) -> None:
+    """Embed all segments of a transcript; failures are logged but never fatal.
+
+    Args:
+        db: Active database session.
+        transcript_id: UUID of the transcript whose segments to embed.
+    """
+    try:
+        result = await db.execute(
+            select(TranscriptSegment)
+            .where(TranscriptSegment.transcript_id == transcript_id)
+            .order_by(TranscriptSegment.sequence)
+        )
+        segments = list(result.scalars().all())
+        if not segments:
+            return
+
+        embedder = get_embedder()
+        texts = [seg.text for seg in segments]
+        vectors = await embedder.embed_texts(texts)
+
+        for seg, vec in zip(segments, vectors, strict=True):
+            seg.embedding = vec
+
+        await db.flush()
+        logger.info(
+            "Embedded %d segments",
+            len(segments),
+            extra={"transcript_id": str(transcript_id)},
+        )
+    except Exception:
+        logger.exception(
+            "Embedding failed — segments left with null embeddings",
+            extra={"transcript_id": str(transcript_id)},
         )
 
 
@@ -102,6 +140,9 @@ async def run_call_pipeline(call_id: uuid.UUID) -> None:
                 db.add(seg)
 
             await db.flush()
+
+            await _embed_segments(db, transcript.id)
+
             await _set_status(db, call, CallStatus.transcribed)
 
             # Trigger scoring phase within the same session.

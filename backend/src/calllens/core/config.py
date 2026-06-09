@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     llm_model_google: str = "gemini-1.5-flash"
     llm_model_groq: str = "llama3-70b-8192"
 
+    # Embeddings
+    embedding_provider: Literal["stub", "local", "gemini"] = "stub"
+    embedding_dim: int = 384
+    embedding_model_name: str = "BAAI/bge-small-en-v1.5"
+
     # Scoring bands
     score_band_good: int = 80
     score_band_fair: int = 60

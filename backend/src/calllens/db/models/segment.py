@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text, Uuid
-from sqlalchemy.dialects.postgresql import ARRAY
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from calllens.core.config import get_settings
 from calllens.db.base import Base
 
 if TYPE_CHECKING:
@@ -29,7 +30,8 @@ class TranscriptSegment(Base):
     end_ms: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
     speaker: Mapped[str] = mapped_column(String(64))
-    # Nullable — populated in a later phase via pgvector
-    embedding: Mapped[list[float] | None] = mapped_column(ARRAY(Float), nullable=True)
+    embedding: Mapped[Any | None] = mapped_column(
+        Vector(get_settings().embedding_dim), nullable=True
+    )
 
     transcript: Mapped[Transcript] = relationship("Transcript", back_populates="segments")

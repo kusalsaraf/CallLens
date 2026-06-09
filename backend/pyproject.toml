@@ -24,6 +24,8 @@ dependencies = [
     "python-multipart>=0.0.32",
     "aiofiles>=24.1.0",
     "python-magic>=0.4.27",
+    "pgvector>=0.3.0",
+    "numpy>=1.26.0",
 ]
 
 [project.optional-dependencies]
@@ -49,6 +51,9 @@ agents = [
     "langchain-groq>=0.1.0",
     "langgraph>=0.2.0",
 ]
+embeddings = [
+    "sentence-transformers>=2.7.0",
+]
 
 [project.scripts]
 calllens-seed-rubric = "calllens.seed.rubric:_main_sync"
@@ -70,6 +75,9 @@ agents = [
     "langchain-google-genai>=1.0.0",
     "langchain-groq>=0.1.0",
     "langgraph>=0.2.0",
+]
+embeddings = [
+    "sentence-transformers>=2.7.0",
 ]
 
 [tool.ruff]
@@ -150,6 +158,18 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["langgraph.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pgvector.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["sentence_transformers.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["numpy.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

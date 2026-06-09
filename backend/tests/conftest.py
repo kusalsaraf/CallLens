@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import calllens.db.models  # noqa: F401 — registers ORM models on Base.metadata
@@ -51,6 +52,8 @@ _SIGNUP_PAYLOAD = {
 async def db_engine():
     """Create all tables before the test and drop them afterwards."""
     engine = create_async_engine(_TEST_DB_URL)
+    async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
