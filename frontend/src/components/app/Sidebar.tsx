@@ -10,7 +10,7 @@ const navItems = [
   { label: "Agents", href: "/app/agents", icon: "↗" },
   { label: "Teams", href: "/app/teams", icon: "⊛" },
   { label: "Upload", href: "/app/upload", icon: "↑" },
-  { label: "Rubrics", href: "/app/rubrics", icon: "◻", placeholder: true },
+  { label: "Rubrics", href: "/app/rubrics", icon: "◻" },
   { label: "Search", href: "/app/search", icon: "⌕" },
   { label: "Settings", href: "/app/settings", icon: "⌇", placeholder: true },
 ];
@@ -39,9 +39,11 @@ export function Sidebar() {
                     ? pathname.startsWith("/app/teams")
                     : href === "/app/upload"
                       ? pathname === "/app/upload"
-                      : href === "/app/search"
-                        ? pathname.startsWith("/app/search")
-                        : pathname === href;
+                      : href === "/app/rubrics"
+                        ? pathname.startsWith("/app/rubrics")
+                        : href === "/app/search"
+                          ? pathname.startsWith("/app/search")
+                          : pathname === href;
           return (
             <Link
               key={href}
