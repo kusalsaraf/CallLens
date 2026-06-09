@@ -36,6 +36,8 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "httpx>=0.27.0",
     "faker>=25.0.0",
+    "boto3>=1.34.0",
+    "moto[s3]>=5.0.0",
 ]
 transcription-local = [
     "faster-whisper>=1.1.0",
@@ -58,6 +60,12 @@ redaction = [
     "presidio-analyzer>=2.2.0",
     "spacy>=3.7.0",
 ]
+s3 = [
+    "boto3>=1.34.0",
+]
+transcription-assemblyai = [
+    "httpx>=0.27.0",
+]
 
 [project.scripts]
 calllens-seed-rubric = "calllens.seed.rubric:_main_sync"
@@ -73,6 +81,8 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "httpx>=0.27.0",
     "faker>=25.0.0",
+    "boto3>=1.34.0",
+    "moto[s3]>=5.0.0",
 ]
 agents = [
     "langchain-core>=0.2.0",
@@ -86,6 +96,9 @@ embeddings = [
 redaction = [
     "presidio-analyzer>=2.2.0",
     "spacy>=3.7.0",
+]
+s3 = [
+    "boto3>=1.34.0",
 ]
 
 [tool.ruff]
@@ -141,10 +154,6 @@ module = ["pyannote.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["groq.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 module = ["aiofiles.*"]
 ignore_missing_imports = true
 
@@ -173,11 +182,11 @@ module = ["sentence_transformers.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["numpy.*"]
+module = ["presidio_analyzer.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["presidio_analyzer.*"]
+module = ["boto3.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

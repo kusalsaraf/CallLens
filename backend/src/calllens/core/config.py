@@ -57,11 +57,19 @@ class Settings(BaseSettings):
         "video/mp4",
     ]
 
+    # S3-compatible storage
+    s3_bucket: str = ""
+    s3_region: str = "us-east-1"
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    s3_endpoint_url: str = ""
+
     # Transcription
-    transcriber_provider: Literal["stub", "faster_whisper", "groq"] = "stub"
-    diarizer_provider: Literal["null", "pyannote"] = "null"
+    transcriber_provider: Literal["stub", "faster_whisper", "groq", "assemblyai"] = "stub"
+    diarizer_provider: Literal["null", "pyannote", "passthrough"] = "null"
     huggingface_token: str = ""
     groq_api_key: str = ""
+    assemblyai_api_key: str = ""
 
     # LLM / agents
     llm_provider: Literal["stub", "langchain"] = "stub"
