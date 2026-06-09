@@ -1,0 +1,2 @@
+web: uvicorn calllens.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1}
+worker: celery -A calllens.tasks.celery_app:celery_app worker --concurrency ${CELERY_CONCURRENCY:-1} --loglevel info

@@ -1,0 +1,126 @@
+# ── Render Blueprint ─────────────────────────────────────────────────
+# Deploy with: "New > Blueprint Instance" in the Render dashboard,
+# pointing at this repo. Render reads render.yaml and creates the
+# services and env vars automatically.
+#
+# Free-tier constraints (512 MB RAM, single instance):
+#   - WEB_CONCURRENCY=1, CELERY_CONCURRENCY=1 to stay within memory
+#   - honcho runs API + Celery worker in a single web service
+#   - stub/regex providers for embedding, redaction, and topics (no
+#     heavy ML models — those need a paid instance)
+#   - API-offloaded providers (Gemini for LLM scoring, AssemblyAI for
+#     transcription) are fine — they make HTTP calls, not local inference
+
+services:
+  # ── Combined API + Worker (free tier) ──────────────────────────────
+  - type: web
+    name: calllens-api
+    runtime: docker
+    dockerContext: backend
+    dockerfilePath: backend/Dockerfile
+    plan: free
+    healthCheckPath: /health
+    preDeployCommand: alembic upgrade head
+    startCommand: honcho start
+    envVars:
+      # ── Application ──────────────────────────────────────────────
+      - key: APP_ENV
+        value: production
+      - key: SEED_DEMO_ON_START
+        value: "true"
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: CELERY_CONCURRENCY
+        value: "1"
+
+      # ── Database ─────────────────────────────────────────────────
+      - key: DB_USE_PGBOUNCER
+        value: "true"
+      - key: DATABASE_URL
+        sync: false                     # set in dashboard (Supabase / Neon)
+
+      # ── Redis ────────────────────────────────────────────────────
+      - key: REDIS_URL
+        sync: false                     # set in dashboard (Upstash / Render Redis)
+
+      # ── Auth ─────────────────────────────────────────────────────
+      - key: JWT_SECRET
+        generateValue: true             # Render generates a random value
+
+      # ── CORS (set to your Vercel frontend URL) ───────────────────
+      - key: CORS_ORIGINS
+        value: "https://calllens.vercel.app"
+
+      # ── Providers (light / API-offloaded — safe for free tier) ───
+      - key: STORAGE_BACKEND
+        value: local
+      - key: TRANSCRIBER_PROVIDER
+        value: stub
+      - key: LLM_PROVIDER
+        value: stub
+      - key: EMBEDDING_PROVIDER
+        value: stub
+      - key: REDACTION_PROVIDER
+        value: regex
+      - key: TOPIC_EXTRACTOR
+        value: stub
+
+      # ── Optional API keys (set in dashboard when ready) ──────────
+      - key: ASSEMBLYAI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+
+      # ── S3 storage (set in dashboard if switching from local) ────
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+
+  # ── Dedicated Celery Worker (paid path) ────────────────────────────
+  # Uncomment this block and remove startCommand: honcho start from the
+  # web service above (replace with the default uvicorn CMD from the
+  # Dockerfile) to split API and worker into separate services.
+  #
+  # - type: worker
+  #   name: calllens-worker
+  #   runtime: docker
+  #   dockerContext: backend
+  #   dockerfilePath: backend/Dockerfile
+  #   plan: starter
+  #   startCommand: celery -A calllens.tasks.celery_app:celery_app worker --concurrency 2 --loglevel info
+  #   envVars:
+  #     - key: APP_ENV
+  #       value: production
+  #     - key: DATABASE_URL
+  #       fromService:
+  #         name: calllens-api
+  #         envVarKey: DATABASE_URL
+  #     - key: REDIS_URL
+  #       fromService:
+  #         name: calllens-api
+  #         envVarKey: REDIS_URL
+  #     - key: JWT_SECRET
+  #       fromService:
+  #         name: calllens-api
+  #         envVarKey: JWT_SECRET
+  #     - key: DB_USE_PGBOUNCER
+  #       value: "true"
+  #     - key: STORAGE_BACKEND
+  #       value: local
+  #     - key: TRANSCRIBER_PROVIDER
+  #       value: stub
+  #     - key: LLM_PROVIDER
+  #       value: stub
+  #     - key: EMBEDDING_PROVIDER
+  #       value: stub
+  #     - key: REDACTION_PROVIDER
+  #       value: regex
+  #     - key: TOPIC_EXTRACTOR
+  #       value: stub

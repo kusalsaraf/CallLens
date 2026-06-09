@@ -25,6 +25,7 @@ COPY --from=builder /app/src /app/src
 COPY --from=builder /app/alembic /app/alembic
 COPY --from=builder /app/alembic.ini /app/alembic.ini
 COPY --from=builder /app/pyproject.toml /app/pyproject.toml
+COPY Procfile .
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/src" \
@@ -35,13 +36,11 @@ USER calllens
 
 EXPOSE 8000
 
-# Default: run the API server. Override CMD for worker mode.
-# WEB_CONCURRENCY controls the number of uvicorn workers (default 2).
-#
 # Run modes:
-#   API:      docker run <image>  (default, runs uvicorn)
-#   Worker:   docker run <image> celery -A calllens.worker worker --loglevel=info
-#   Migrate:  docker run <image> alembic upgrade head
-#   Seed:     docker run <image> python -m calllens.seed.demo --count 16
+#   Combined:  honcho start                      (API + worker in one process — free tier)
+#   API only:  uvicorn calllens.main:app ...      (separate deploy)
+#   Worker:    celery -A calllens.tasks.celery_app:celery_app worker ...
+#   Migrate:   alembic upgrade head               (one-off pre-deploy command)
+#   Seed:      python -m calllens.seed.demo --count 16
 
 CMD ["uvicorn", "calllens.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

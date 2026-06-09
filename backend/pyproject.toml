@@ -26,6 +26,7 @@ dependencies = [
     "python-magic>=0.4.27",
     "pgvector>=0.3.0",
     "numpy>=1.26.0",
+    "honcho>=1.1.0",
 ]
 
 [project.optional-dependencies]
