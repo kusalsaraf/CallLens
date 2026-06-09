@@ -27,6 +27,7 @@ import { SummaryActionsCard } from "@/components/calls/SummaryActionsCard";
 import { ConversationDynamics } from "@/components/calls/ConversationDynamics";
 import { AgentRunTrace } from "@/components/calls/AgentRunTrace";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { formatRelative } from "@/lib/utils";
 
 export default function CallDetailPage() {
@@ -239,6 +240,21 @@ export default function CallDetailPage() {
               analysis={analysis}
               durationSeconds={call.duration_seconds}
             />
+          )}
+
+          {/* 1b. Topic chips (from analysis.topics) */}
+          {isScored && analysis && analysis.topics && analysis.topics.length > 0 && (
+            <div data-testid="topic-chips" className="flex flex-wrap gap-2">
+              {analysis.topics.map((t) => (
+                <Link
+                  key={t.topic_id}
+                  href={`/app/calls?topic_id=${t.topic_id}`}
+                  className="inline-flex items-center rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
+                >
+                  {t.name}
+                </Link>
+              ))}
+            </div>
           )}
 
           {/* 2. Escalation banner */}

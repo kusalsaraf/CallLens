@@ -9,8 +9,14 @@ vi.mock("@/lib/api/calls", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api/calls")>();
   return { ...actual, apiListCalls: mockListCalls };
 });
+vi.mock("@/lib/api/topics", () => ({
+  apiListTopics: vi.fn().mockResolvedValue({ items: [] }),
+  apiGetTopicAnalytics: vi.fn().mockResolvedValue({ items: [] }),
+  apiGetTopic: vi.fn(),
+}));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/app/calls",
 }));
 vi.mock("next/link", () => ({

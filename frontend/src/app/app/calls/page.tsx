@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   apiListCalls,
   type CallOut,
   type CallStatus,
 } from "@/lib/api/calls";
+import { apiListTopics, type TopicOut } from "@/lib/api/topics";
 import { StatusBadge } from "@/components/calls/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { cn, formatDuration, formatRelative } from "@/lib/utils";
@@ -22,17 +23,43 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "failed", label: "Failed" },
 ];
 
-export default function CallsPage() {
+function CallsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
 
+  const initialTopicId = searchParams.get("topic_id") ?? undefined;
+  const [topicId, setTopicId] = useState<string | undefined>(initialTopicId);
+
+  const { data: topicsList } = useQuery({
+    queryKey: ["topics-list"],
+    queryFn: apiListTopics,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const activeTopicName =
+    topicId && topicsList
+      ? topicsList.items.find((t: TopicOut) => t.id === topicId)?.name ?? null
+      : null;
+
+  const setTopicFilter = useCallback(
+    (id: string | undefined) => {
+      setTopicId(id);
+      setPage(1);
+      const url = id ? `/app/calls?topic_id=${id}` : "/app/calls";
+      router.replace(url);
+    },
+    [router],
+  );
+
   const { data, isLoading } = useQuery({
-    queryKey: ["calls", { status: statusFilter, page }],
+    queryKey: ["calls", { status: statusFilter, topic_id: topicId, page }],
     queryFn: () =>
       apiListCalls({
         status: statusFilter || undefined,
+        topic_id: topicId,
         page,
         page_size: PAGE_SIZE,
       }),
@@ -53,7 +80,7 @@ export default function CallsPage() {
       </div>
 
       {/* Filter bar */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <select
           value={statusFilter}
           onChange={(e) => {
@@ -61,6 +88,7 @@ export default function CallsPage() {
             setPage(1);
           }}
           className="rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          data-testid="status-filter"
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -68,6 +96,42 @@ export default function CallsPage() {
             </option>
           ))}
         </select>
+
+        {/* Topic selector */}
+        {topicsList && topicsList.items.length > 0 && (
+          <select
+            value={topicId ?? ""}
+            onChange={(e) => setTopicFilter(e.target.value || undefined)}
+            className="rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            data-testid="topic-selector"
+          >
+            <option value="">All topics</option>
+            {topicsList.items.map((t: TopicOut) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Active topic chip */}
+        {topicId && activeTopicName && (
+          <span
+            data-testid="topic-chip"
+            className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary"
+          >
+            Topic: {activeTopicName}
+            <button
+              data-testid="topic-chip-clear"
+              onClick={() => setTopicFilter(undefined)}
+              className="ml-0.5 rounded-full p-0.5 hover:bg-primary/10"
+              aria-label="Clear topic filter"
+            >
+              ✕
+            </button>
+          </span>
+        )}
+
         {data && (
           <span className="text-sm text-muted-foreground">
             {data.total} call{data.total !== 1 ? "s" : ""}
@@ -185,5 +249,13 @@ export default function CallsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CallsPage() {
+  return (
+    <Suspense>
+      <CallsContent />
+    </Suspense>
   );
 }

@@ -109,6 +109,7 @@ export interface CallAnalysisOut {
   compliance_passed: boolean;
   escalate_for_review: boolean;
   escalation_reason: string | null;
+  topics: CallTopicBrief[];
   created_at: string;
 }
 
@@ -141,8 +142,16 @@ export interface SsePayload {
   detail?: string;
 }
 
+export interface CallTopicBrief {
+  topic_id: string;
+  name: string;
+  slug: string;
+  relevance: number;
+}
+
 export interface ListCallsParams {
   status?: string;
+  topic_id?: string;
   page?: number;
   page_size?: number;
 }
@@ -170,6 +179,7 @@ export async function apiListCalls(
 ): Promise<CallListOut> {
   const qs = new URLSearchParams();
   if (params.status) qs.set("status", params.status);
+  if (params.topic_id) qs.set("topic_id", params.topic_id);
   if (params.page != null) qs.set("page", String(params.page));
   if (params.page_size != null) qs.set("page_size", String(params.page_size));
   const query = qs.toString() ? `?${qs.toString()}` : "";

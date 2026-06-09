@@ -134,6 +134,7 @@ const ANALYSIS = {
   compliance_passed: true,
   escalate_for_review: false,
   escalation_reason: null,
+  topics: [],
   created_at: "2026-06-09T10:00:00Z",
 };
 

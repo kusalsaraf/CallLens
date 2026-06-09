@@ -100,6 +100,7 @@ const SAMPLE_ANALYSIS = {
   compliance_passed: false,
   escalate_for_review: false,
   escalation_reason: null,
+  topics: [],
   created_at: "2026-06-08T10:00:00Z",
 };
 
