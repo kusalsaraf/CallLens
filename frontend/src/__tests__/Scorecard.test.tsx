@@ -33,6 +33,7 @@ const SAMPLE_SEGMENT = {
   start_ms: 5000,
   end_ms: 9000,
   text: "Thank you for calling, how can I help you today?",
+  redacted_text: null,
   speaker: "agent" as const,
 };
 

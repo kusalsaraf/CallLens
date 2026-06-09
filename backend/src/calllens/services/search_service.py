@@ -59,6 +59,7 @@ async def search(
             TranscriptSegment.id.label("segment_id"),
             TranscriptSegment.start_ms,
             TranscriptSegment.text,
+            TranscriptSegment.redacted_text,
             (1 - distance_expr).label("similarity"),
             Call.id.label("call_id"),
             Call.created_at.label("uploaded_at"),
@@ -106,7 +107,7 @@ async def search(
             {
                 "segment_id": row.segment_id,
                 "start_ms": row.start_ms,
-                "text": row.text,
+                "text": row.redacted_text or row.text,
                 "similarity": round(float(row.similarity), 4),
             }
         )

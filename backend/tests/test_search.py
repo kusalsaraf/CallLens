@@ -586,3 +586,38 @@ async def test_pipeline_embedding_error_does_not_fail_call(db_engine: object) ->
         )
         seg = result.scalar_one()
         assert seg.embedding is None
+
+
+# ---------------------------------------------------------------------------
+# Redacted snippet tests (Phase 9B)
+# ---------------------------------------------------------------------------
+
+
+async def test_search_snippet_prefers_redacted_text(
+    client: AsyncClient,
+    auth_token: str,
+    search_dataset: dict[str, uuid.UUID],
+    db: AsyncSession,
+) -> None:
+    """When a segment has redacted_text, the search snippet should use it."""
+    seg1_id = search_dataset["seg1_id"]
+
+    # Set redacted_text on seg1 (simulating post-redaction state)
+    result = await db.execute(select(TranscriptSegment).where(TranscriptSegment.id == seg1_id))
+    seg = result.scalar_one()
+    seg.redacted_text = "Thank you for calling support how can I help you today [REDACTED_EMAIL]"
+    await db.commit()
+
+    seg1_text = search_dataset["seg1_text"]
+    resp = await client.get(
+        "/api/v1/search",
+        params={"q": seg1_text},
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] >= 1
+
+    top_snippet = data["results"][0]["snippets"][0]
+    assert "[REDACTED_EMAIL]" in top_snippet["text"]
+    assert top_snippet["segment_id"] == str(seg1_id)

@@ -287,6 +287,8 @@ export default function CallDetailPage() {
               currentTimeSec={currentTimeSec}
               onSeek={handleSeek}
               focusedSegmentId={focusedSegmentId ?? undefined}
+              entitiesRedacted={transcript?.entities_redacted}
+              redactionProvider={transcript?.redaction_provider}
               className="max-h-[60vh]"
             />
           )}

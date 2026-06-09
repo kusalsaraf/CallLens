@@ -11,6 +11,7 @@ const SEGMENTS: SegmentOut[] = [
     start_ms: 0,
     end_ms: 4000,
     text: "Hello there",
+    redacted_text: null,
     speaker: "agent",
   },
   {
@@ -19,6 +20,7 @@ const SEGMENTS: SegmentOut[] = [
     start_ms: 4500,
     end_ms: 9000,
     text: "Hi how can I help",
+    redacted_text: null,
     speaker: "customer",
   },
   {
@@ -27,6 +29,7 @@ const SEGMENTS: SegmentOut[] = [
     start_ms: 9500,
     end_ms: 14000,
     text: "I have a question",
+    redacted_text: null,
     speaker: "agent",
   },
 ];

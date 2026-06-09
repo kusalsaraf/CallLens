@@ -92,6 +92,7 @@ const TRANSCRIPT = {
       start_ms: 0,
       end_ms: 3000,
       text: "Hello, how can I help you today?",
+      redacted_text: null,
       speaker: "agent",
     },
     {
@@ -100,6 +101,7 @@ const TRANSCRIPT = {
       start_ms: 5000,
       end_ms: 10000,
       text: "I need help with my account please.",
+      redacted_text: null,
       speaker: "customer",
     },
     {
@@ -108,9 +110,12 @@ const TRANSCRIPT = {
       start_ms: 11000,
       end_ms: 15000,
       text: "Sure, let me pull that up for you.",
+      redacted_text: null,
       speaker: "agent",
     },
   ],
+  redaction_provider: null,
+  entities_redacted: null,
   created_at: "2026-06-09T10:00:00Z",
 };
 

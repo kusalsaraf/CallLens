@@ -48,6 +48,7 @@ export interface SegmentOut {
   start_ms: number;
   end_ms: number;
   text: string;
+  redacted_text: string | null;
   speaker: "agent" | "customer" | "unknown";
 }
 
@@ -55,6 +56,8 @@ export interface TranscriptOut {
   id: string;
   call_id: string;
   language: string | null;
+  redaction_provider: string | null;
+  entities_redacted: Record<string, number> | null;
   segments: SegmentOut[];
   created_at: string;
 }

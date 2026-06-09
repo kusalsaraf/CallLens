@@ -43,6 +43,7 @@ const SEGMENT_A = {
   start_ms: 1000,
   end_ms: 4000,
   text: "I understand your frustration completely.",
+  redacted_text: null,
   speaker: "agent" as const,
 };
 
@@ -52,6 +53,7 @@ const SEGMENT_B = {
   start_ms: 4500,
   end_ms: 8000,
   text: "My account was charged twice.",
+  redacted_text: null,
   speaker: "customer" as const,
 };
 
