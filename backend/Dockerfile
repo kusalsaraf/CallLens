@@ -9,7 +9,10 @@ COPY src/ src/
 COPY alembic/ alembic/
 COPY alembic.ini .
 
-RUN uv sync --no-dev --frozen
+# Install base deps + agents group (langgraph is imported at module level
+# by the scoring service). Heavy optional groups like transcription-local,
+# embeddings, and redaction-presidio are NOT included.
+RUN uv sync --no-dev --frozen --extra agents
 
 # ── Stage 2: runtime ────────────────────────────────────────────────
 FROM python:3.12-slim AS runtime
